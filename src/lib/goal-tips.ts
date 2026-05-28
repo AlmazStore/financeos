@@ -1,4 +1,10 @@
 const BRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const dateBR = (d: Date) => d.toLocaleDateString("pt-BR");
+const monthYear = (d: Date) => {
+  const s = d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+const addMonths = (d: Date, n: number) => { const x = new Date(d); x.setMonth(x.getMonth() + n); return x; };
 
 export type GoalTipCtx = {
   topCategory?: { name: string; amount: number } | null;
@@ -8,8 +14,9 @@ export type GoalTipCtx = {
 export type GoalTip = { kind: "pace" | "cut" | "compare" | "info"; text: string };
 
 /**
- * Generates actionable, personalized tips for reaching a goal faster,
- * based on its deadline and the user's real spending.
+ * Detailed, personalized tips for reaching a goal faster — per day/week/month
+ * targets, projected completion date at the current pace, and a cut suggestion
+ * on the biggest spending category. All numbers come from the user's real data.
  */
 export function goalTips(
   goal: { targetAmount: number; currentAmount: number; deadline: string | null },
@@ -20,56 +27,61 @@ export function goalTips(
 
   const tips: GoalTip[] = [];
   const now = new Date();
+  const avg = ctx.avgMonthlySavings;
   const deadline = goal.deadline ? new Date(goal.deadline) : null;
   const days = deadline ? Math.ceil((deadline.getTime() - now.getTime()) / 86_400_000) : null;
 
-  let monthlyNeeded: number | null = null;
+  let perMonth: number | null = null;
 
   if (days !== null && days > 0) {
-    const weeksLeft = Math.max(1, Math.ceil(days / 7));
-    const monthsLeft = Math.max(1, Math.round(days / 30));
-    const weekly = remaining / weeksLeft;
-    monthlyNeeded = remaining / monthsLeft;
+    const weeks = Math.max(1, Math.ceil(days / 7));
+    const months = Math.max(1, Math.round(days / 30));
+    const perDay = remaining / days;
+    const perWeek = remaining / weeks;
+    perMonth = remaining / months;
+
     tips.push({
       kind: "pace",
-      text: `Guarde ${BRL(weekly)} por semana (${BRL(monthlyNeeded)}/mês) para bater a meta no prazo. Faltam ${BRL(remaining)}.`,
+      text: `Faltam ${BRL(remaining)} e ${days} dias (até ${dateBR(deadline!)}). Para chegar no prazo, guarde ${BRL(perDay)}/dia — ou ${BRL(perWeek)}/semana, ou ${BRL(perMonth)}/mês.`,
     });
+
+    // Projection at current pace
+    if (avg > 0) {
+      const monthsAtPace = Math.max(1, Math.ceil(remaining / avg));
+      const projDate = addMonths(now, monthsAtPace);
+      if (projDate <= deadline!) {
+        tips.push({ kind: "compare", text: `No seu ritmo atual (${BRL(avg)}/mês ≈ ${BRL(avg / 30)}/dia) você chega por volta de ${monthYear(projDate)} — antes do prazo. Continue assim! 🎉` });
+      } else {
+        const extra = perMonth - avg;
+        tips.push({ kind: "compare", text: `No ritmo atual (${BRL(avg)}/mês) você só chegaria em ${monthYear(projDate)}, depois do prazo. Para não atrasar, guarde ${BRL(extra)}/mês a mais (${BRL(extra / 30)}/dia).` });
+      }
+    }
   } else if (days !== null && days <= 0) {
-    tips.push({ kind: "info", text: `O prazo já passou. Revise a data da meta ou aumente o aporte — faltam ${BRL(remaining)}.` });
+    tips.push({ kind: "info", text: `O prazo já passou e faltam ${BRL(remaining)}. Revise a data da meta ou faça um aporte maior para concluí-la.` });
   } else {
     // No deadline
-    if (ctx.avgMonthlySavings > 0) {
-      const months = Math.ceil(remaining / ctx.avgMonthlySavings);
-      tips.push({
-        kind: "pace",
-        text: `No seu ritmo atual (${BRL(ctx.avgMonthlySavings)}/mês de sobra), você atinge em ~${months} ${months === 1 ? "mês" : "meses"}. Defina um prazo para ver a meta semanal.`,
-      });
+    if (avg > 0) {
+      const months = Math.max(1, Math.ceil(remaining / avg));
+      const projDate = addMonths(now, months);
+      tips.push({ kind: "pace", text: `Sem prazo definido. No seu ritmo (${BRL(avg)}/mês ≈ ${BRL(avg / 30)}/dia) você atinge em ~${months} ${months === 1 ? "mês" : "meses"}, por volta de ${monthYear(projDate)}.` });
     } else {
-      tips.push({ kind: "info", text: `Defina um prazo para calcular quanto guardar por semana. Faltam ${BRL(remaining)}.` });
+      tips.push({ kind: "info", text: `Você não está conseguindo guardar este mês. Reduza despesas para começar a avançar — faltam ${BRL(remaining)}.` });
     }
+    // Concrete targets for common horizons
+    tips.push({ kind: "compare", text: `Quer um alvo? Em 12 meses são ${BRL(remaining / 12)}/mês (${BRL(remaining / 365)}/dia); em 6 meses, ${BRL(remaining / 6)}/mês. Defina um prazo na meta para acompanhar.` });
   }
 
   // Cut biggest category
   if (ctx.topCategory && ctx.topCategory.amount > 0) {
     const freed = ctx.topCategory.amount * 0.3;
     if (freed > 0) {
-      const monthsToFund = Math.ceil(remaining / freed);
+      const monthsToFund = Math.max(1, Math.ceil(remaining / freed));
       tips.push({
         kind: "cut",
-        text: `Seu maior gasto é ${ctx.topCategory.name} (${BRL(ctx.topCategory.amount)}/mês). Cortando 30% dele você libera ${BRL(freed)}/mês — só isso banca a meta em ~${monthsToFund} ${monthsToFund === 1 ? "mês" : "meses"}.`,
+        text: `Seu maior gasto é ${ctx.topCategory.name}: ${BRL(ctx.topCategory.amount)}/mês (${BRL(ctx.topCategory.amount / 30)}/dia). Cortando 30% você libera ${BRL(freed)}/mês — sozinho isso banca a meta em ~${monthsToFund} ${monthsToFund === 1 ? "mês" : "meses"}.`,
       });
     }
   }
 
-  // Compare needed pace vs actual savings
-  if (monthlyNeeded !== null && ctx.avgMonthlySavings > 0) {
-    if (ctx.avgMonthlySavings >= monthlyNeeded) {
-      tips.push({ kind: "compare", text: `Você economiza ~${BRL(ctx.avgMonthlySavings)}/mês — mais que o necessário. Está no caminho certo! 🎉` });
-    } else {
-      const gap = monthlyNeeded - ctx.avgMonthlySavings;
-      tips.push({ kind: "compare", text: `Hoje você guarda ~${BRL(ctx.avgMonthlySavings)}/mês, mas precisa de ${BRL(monthlyNeeded)}. Faltam ${BRL(gap)}/mês — é aí que cortar gastos ajuda.` });
-    }
-  }
-
-  return tips.slice(0, 3);
+  return tips.slice(0, 4);
 }

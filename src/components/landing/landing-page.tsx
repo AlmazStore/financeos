@@ -254,7 +254,7 @@ function HeroSection() {
         </motion.div>
 
         <motion.h1
-          className="text-5xl md:text-7xl font-bold leading-tight mb-6 tracking-tight"
+          className="text-4xl sm:text-5xl md:text-7xl font-bold leading-tight mb-6 tracking-tight"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
@@ -265,7 +265,7 @@ function HeroSection() {
         </motion.h1>
 
         <motion.p
-          className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-10 leading-relaxed"
+          className="text-base sm:text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-10 leading-relaxed"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -304,9 +304,9 @@ function HeroSection() {
           Grátis para sempre no plano básico · Sem cartão de crédito · Setup em 2 minutos
         </motion.p>
 
-        {/* Dashboard Preview */}
+        {/* Dashboard Preview — hidden on small screens (dense mock, unreadable on phones) */}
         <motion.div
-          className="mt-16 relative"
+          className="mt-16 relative hidden sm:block"
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}

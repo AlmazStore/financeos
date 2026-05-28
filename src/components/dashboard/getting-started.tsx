@@ -71,44 +71,46 @@ export function GettingStarted({ hasTransactions, hasGoals }: Props) {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.08 }}
             className={cn(
-              "flex items-center gap-4 p-4 rounded-xl border transition-all",
+              "flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-xl border transition-all",
               step.done
                 ? "border-emerald-500/20 bg-emerald-500/5"
                 : "border-border hover:border-border/80 hover:bg-muted/20"
             )}
           >
-            <div className="flex-shrink-0">
-              {step.done ? (
-                <CheckCircle2 className="w-6 h-6 text-emerald-400" />
-              ) : (
-                <Circle className="w-6 h-6 text-muted-foreground/40" />
-              )}
-            </div>
+            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+              <div className="flex-shrink-0">
+                {step.done ? (
+                  <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                ) : (
+                  <Circle className="w-6 h-6 text-muted-foreground/40" />
+                )}
+              </div>
 
-            <div className={cn(
-              "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
-              step.done ? "bg-emerald-500/10" : "bg-muted"
-            )}>
-              <step.icon className={cn("w-5 h-5", step.done ? "text-emerald-400" : "text-muted-foreground")} />
-            </div>
+              <div className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
+                step.done ? "bg-emerald-500/10" : "bg-muted"
+              )}>
+                <step.icon className={cn("w-5 h-5", step.done ? "text-emerald-400" : "text-muted-foreground")} />
+              </div>
 
-            <div className="flex-1 min-w-0">
-              <p className={cn("text-sm font-semibold", step.done && "line-through text-muted-foreground")}>
-                {step.title}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">{step.desc}</p>
+              <div className="flex-1 min-w-0">
+                <p className={cn("text-sm font-semibold", step.done && "line-through text-muted-foreground")}>
+                  {step.title}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">{step.desc}</p>
+              </div>
             </div>
 
             {!step.done && (
-              <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
-                <Button variant="premium" size="sm" className="gap-1.5" asChild>
+              <div className="flex gap-2 flex-shrink-0 pl-9 sm:pl-0">
+                <Button variant="premium" size="sm" className="gap-1.5 flex-1 sm:flex-initial" asChild>
                   <Link href={step.href}>
                     {step.cta}
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </Button>
                 {step.secondary && (
-                  <Button variant="outline" size="sm" asChild>
+                  <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" asChild>
                     <Link href={step.secondary.href}>{step.secondary.label}</Link>
                   </Button>
                 )}

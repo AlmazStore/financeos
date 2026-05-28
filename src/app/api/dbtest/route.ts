@@ -1,41 +1,50 @@
 import { NextResponse } from "next/server";
 import { Client } from "pg";
 
-const regions = [
-  "us-east-1", "us-west-1", "sa-east-1",
-  "eu-west-1", "eu-west-2", "eu-central-1",
-  "ap-southeast-1", "ap-northeast-1",
-];
-
-async function testRegion(region: string, password: string) {
-  const hosts = [
-    { host: `aws-0-${region}.pooler.supabase.com`, port: 5432, user: "postgres.fmzgvskujwiewebnbdbe" },
-    { host: `aws-0-${region}.pooler.supabase.com`, port: 6543, user: "postgres.fmzgvskujwiewebnbdbe" },
-  ];
-  const results = [];
-  for (const h of hosts) {
-    const client = new Client({
-      host: h.host, port: h.port, user: h.user,
-      password, database: "postgres",
-      ssl: { rejectUnauthorized: false },
-      connectionTimeoutMillis: 5000,
-    });
-    try {
-      await client.connect();
-      await client.end();
-      results.push({ ...h, status: "OK" });
-    } catch (e: unknown) {
-      results.push({ ...h, status: e instanceof Error ? e.message.slice(0, 120) : String(e) });
-    }
+async function testConn(host: string, port: number, user: string, password: string) {
+  const client = new Client({
+    host, port, user, password,
+    database: "postgres",
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 6000,
+  });
+  try {
+    await client.connect();
+    const res = await client.query("SELECT 1 as ok");
+    await client.end();
+    return { status: "OK", rows: res.rows[0] };
+  } catch (e: unknown) {
+    return { status: e instanceof Error ? e.message.slice(0, 150) : String(e) };
   }
-  return results;
 }
 
 export async function GET() {
   const pw = "yK3EzFV1V48Pw17s";
-  const results = await Promise.all(regions.map(r => testRegion(r, pw)));
-  return NextResponse.json(
-    regions.reduce((acc, r, i) => { acc[r] = results[i]; return acc; }, {} as Record<string, unknown>),
-    { status: 200 }
-  );
+  const proj = "fmzgvskujwiewebnbdbe";
+
+  const tests = [
+    // Old-style pgBouncer directly on project host
+    testConn(`db.${proj}.supabase.co`, 6543, "postgres", pw),
+    // New Supavisor pooler
+    testConn(`aws-0-us-east-1.pooler.supabase.com`, 5432, `postgres.${proj}`, pw),
+    testConn(`aws-0-us-east-1.pooler.supabase.com`, 6543, `postgres.${proj}`, pw),
+    testConn(`aws-0-us-west-1.pooler.supabase.com`, 5432, `postgres.${proj}`, pw),
+    testConn(`aws-0-eu-west-2.pooler.supabase.com`, 5432, `postgres.${proj}`, pw),
+    // Direct connection (IPv6 - likely to fail)
+    testConn(`db.${proj}.supabase.co`, 5432, "postgres", pw),
+  ];
+
+  const labels = [
+    "direct:6543(pgBouncer)",
+    "us-east-1:5432",
+    "us-east-1:6543",
+    "us-west-1:5432",
+    "eu-west-2:5432",
+    "direct:5432(IPv6)",
+  ];
+
+  const results = await Promise.all(tests);
+  const out: Record<string, unknown> = {};
+  labels.forEach((l, i) => { out[l] = results[i]; });
+  return NextResponse.json(out, { status: 200 });
 }

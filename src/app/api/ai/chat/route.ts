@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { analyzeFinances, answerQuestion } from "@/lib/ai-analysis";
+import { normalizeMerchant } from "@/lib/category-rules";
 
 /**
  * AI chat backed by a real LLM (free-tier, zero cost) with TOOL USE — the
@@ -30,9 +31,13 @@ Você pode CONVERSAR e também EXECUTAR TAREFAS para o cliente usando as ferrame
 - criar metas e adicionar valores a metas
 - definir orçamento mensal por categoria
 - criar lançamentos recorrentes (salário, aluguel, assinaturas)
+- criar categorias novas
+- classificar/recategorizar transações existentes por palavra-chave (ex: "põe todos os pix do Facebook na categoria Meta Ads")
 
 Regras:
-- Quando o cliente pedir uma ação ("registra um gasto de 50 no mercado", "cria uma meta de 5000 pra viagem", "põe um orçamento de 800 em alimentação"), USE a ferramenta apropriada em vez de só explicar. Após executar, confirme em 1-2 frases o que foi feito.
+- Quando o cliente pedir uma ação, USE a ferramenta apropriada em vez de só explicar. Nunca responda com um resumo genérico quando a pessoa pediu uma tarefa.
+- Para pedidos compostos, encadeie ferramentas: ex. "crie a categoria Meta Ads e jogue os pix do facebook nela" = chame create_category e depois categorize_transactions.
+- Após executar, confirme em 1-2 frases o que foi feito (quantidade afetada, valores).
 - Se faltar uma informação essencial (ex: valor), pergunte antes de executar.
 - Use os dados financeiros reais do contexto. Nunca invente números.
 - Seja concisa. Cite valores em reais. Foque em finanças pessoais.
@@ -136,6 +141,37 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "create_category",
+      description: "Cria uma nova categoria de transação. Use antes de classificar se a categoria não existir.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Nome da categoria, ex: Meta Ads" },
+          type: { type: "string", enum: ["INCOME", "EXPENSE", "BOTH"], description: "Tipo. Padrão: EXPENSE" },
+        },
+        required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "categorize_transactions",
+      description: "Classifica/recategoriza em massa as transações existentes cuja descrição contém uma palavra-chave. Ex: jogar todos os pix do Facebook na categoria 'Meta Ads'.",
+      parameters: {
+        type: "object",
+        properties: {
+          match: { type: "string", description: "Palavra-chave buscada na descrição da transação, ex: facebook" },
+          category: { type: "string", description: "Nome da categoria de destino (deve existir; crie antes se preciso)" },
+          type: { type: "string", enum: ["INCOME", "EXPENSE"], description: "Filtrar só entradas ou só saídas (opcional)" },
+        },
+        required: ["match", "category"],
+      },
+    },
+  },
 ];
 
 type Cat = { id: string; name: string; type: string };
@@ -211,6 +247,42 @@ async function executeTool(name: string, args: any, userId: string, cats: Cat[])
         data: { title: String(args.title), amount, type, frequency: freq, categoryId: cat?.id ?? null, userId, startDate: today, nextDueDate: today, isActive: true },
       });
       return { result: `OK: recorrência "${args.title}" de ${BRL(amount)} (${freq}) criada.`, changed: true };
+    }
+
+    if (name === "create_category") {
+      const cname = String(args.name ?? "").trim();
+      if (!cname) return { result: "Erro: informe o nome da categoria.", changed: false };
+      const type = ["INCOME", "EXPENSE", "BOTH"].includes(args.type) ? args.type : "EXPENSE";
+      const existing = cats.find((c) => c.name.toLowerCase() === cname.toLowerCase());
+      if (existing) return { result: `A categoria "${existing.name}" já existe.`, changed: false };
+      const created = await db.category.create({
+        data: { name: cname, type, icon: "🏷️", color: "#6366f1", userId },
+        select: { id: true, name: true, type: true },
+      });
+      cats.push(created); // make it resolvable within this same conversation turn
+      return { result: `OK: categoria "${created.name}" (${type === "INCOME" ? "entrada" : type === "BOTH" ? "ambos" : "saída"}) criada.`, changed: true };
+    }
+
+    if (name === "categorize_transactions") {
+      const match = String(args.match ?? "").trim();
+      if (!match) return { result: "Erro: informe a palavra-chave para buscar.", changed: false };
+      const cat = cats.find((c) => c.name.toLowerCase() === String(args.category ?? "").toLowerCase())
+        || cats.find((c) => c.name.toLowerCase().includes(String(args.category ?? "").toLowerCase()));
+      if (!cat) return { result: `Erro: categoria "${args.category}" não existe. Crie-a primeiro com create_category.`, changed: false };
+      const where: Record<string, unknown> = { userId, title: { contains: match, mode: "insensitive" } };
+      if (args.type === "INCOME" || args.type === "EXPENSE") where.type = args.type;
+      const result = await db.transaction.updateMany({ where, data: { categoryId: cat.id } });
+      if (result.count === 0) return { result: `Nenhuma transação com "${match}" foi encontrada para classificar.`, changed: false };
+      // Learn the rule so future imports auto-apply
+      const pattern = normalizeMerchant(match);
+      if (pattern.length >= 3) {
+        await db.categoryRule.upsert({
+          where: { userId_pattern: { userId, pattern } },
+          create: { userId, pattern, categoryId: cat.id },
+          update: { categoryId: cat.id },
+        }).catch(() => {});
+      }
+      return { result: `OK: ${result.count} transação(ões) com "${match}" movida(s) para "${cat.name}". A partir de agora, novas importações com "${match}" entram nessa categoria automaticamente.`, changed: true };
     }
 
     return { result: `Erro: ferramenta desconhecida (${name}).`, changed: false };

@@ -18,6 +18,7 @@ const geistMono = Geist_Mono({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#0a0a0a",
 };
 
 export const metadata: Metadata = {
@@ -29,6 +30,9 @@ export const metadata: Metadata = {
     "Substitua suas planilhas por uma plataforma financeira inteligente. Controle entradas, saídas, metas e investimentos com a precisão de um CFO.",
   keywords: ["controle financeiro", "gestão financeira", "finanças pessoais", "fluxo de caixa"],
   authors: [{ name: "FinanceOS" }],
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "FinanceOS" },
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
   openGraph: {
     title: "FinanceOS — Controle Financeiro Inteligente",
     description: "Substitua suas planilhas por uma plataforma financeira inteligente.",

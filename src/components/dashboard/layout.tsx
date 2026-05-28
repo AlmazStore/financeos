@@ -6,11 +6,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { signOut } from "next-auth/react";
 import { TutorialOverlay } from "@/components/tutorial/TutorialOverlay";
+import { QuickAddFab } from "@/components/dashboard/quick-add-fab";
 import {
   BarChart3, Bell, Bot, Building2, CreditCard,
   LayoutDashboard, LogOut, Menu, Moon, Plus,
   Settings, Sun, TrendingUp, User, Wallet, X, Zap, BookOpen, Tag,
-  HeartPulse, PiggyBank,
+  HeartPulse, PiggyBank, type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,10 @@ type SessionUser = {
   image?: string | null;
 };
 
-const NAV_ITEMS = [
+type NavItem = { href: string; icon: LucideIcon; label: string; badge?: string };
+type NavSection = { section: string; business?: boolean; items: NavItem[] };
+
+const NAV_ITEMS: NavSection[] = [
   {
     section: "Pessoal",
     items: [
@@ -33,6 +37,7 @@ const NAV_ITEMS = [
       { href: "/transactions", icon: CreditCard, label: "Transações" },
       { href: "/categories", icon: Tag, label: "Categorias" },
       { href: "/budgets", icon: PiggyBank, label: "Orçamentos" },
+      { href: "/cashflow", icon: Zap, label: "Contas a pagar/receber" },
       { href: "/goals", icon: TrendingUp, label: "Metas" },
       { href: "/health", icon: HeartPulse, label: "Saúde Financeira" },
       { href: "/reports", icon: BarChart3, label: "Relatórios" },
@@ -41,9 +46,9 @@ const NAV_ITEMS = [
   },
   {
     section: "Empresarial",
+    business: true,
     items: [
       { href: "/companies", icon: Building2, label: "Empresas" },
-      { href: "/cashflow", icon: Zap, label: "Fluxo de Caixa" },
       { href: "/team", icon: User, label: "Equipe" },
     ],
   },
@@ -55,9 +60,10 @@ const NAV_ITEMS = [
   },
 ];
 
-function Sidebar({ user, onClose }: { user: SessionUser; onClose?: () => void }) {
+function Sidebar({ user, onClose, businessMode = true }: { user: SessionUser; onClose?: () => void; businessMode?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
+  const sections = NAV_ITEMS.filter((s) => !("business" in s && s.business) || businessMode);
 
   const handleSignOut = async () => {
     await signOut({ redirect: false });
@@ -81,7 +87,7 @@ function Sidebar({ user, onClose }: { user: SessionUser; onClose?: () => void })
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-        {NAV_ITEMS.map((section) => (
+        {sections.map((section) => (
           <div key={section.section}>
             <p className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-wider mb-2 px-2">
               {section.section}
@@ -154,7 +160,7 @@ function TopBar({ onMenuClick, user, onTutorial }: { onMenuClick: () => void; us
       "/reports": "Relatórios",
       "/ai": "IA Financeira",
       "/companies": "Empresas",
-      "/cashflow": "Fluxo de Caixa",
+      "/cashflow": "Contas a pagar/receber",
       "/team": "Equipe",
       "/settings": "Configurações",
     };
@@ -203,14 +209,14 @@ function TopBar({ onMenuClick, user, onTutorial }: { onMenuClick: () => void; us
   );
 }
 
-export function DashboardLayout({ children, user, showTutorial = false }: { children: React.ReactNode; user: SessionUser; showTutorial?: boolean }) {
+export function DashboardLayout({ children, user, showTutorial = false, businessMode = true }: { children: React.ReactNode; user: SessionUser; showTutorial?: boolean; businessMode?: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(showTutorial);
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       <aside className="hidden lg:flex w-64 flex-col border-r border-sidebar-border bg-sidebar flex-shrink-0">
-        <Sidebar user={user} />
+        <Sidebar user={user} businessMode={businessMode} />
       </aside>
 
       <AnimatePresence>
@@ -223,7 +229,7 @@ export function DashboardLayout({ children, user, showTutorial = false }: { chil
             <motion.aside className="fixed left-0 top-0 bottom-0 w-72 bg-sidebar border-r border-sidebar-border z-50 lg:hidden flex flex-col"
               initial={{ x: -288 }} animate={{ x: 0 }} exit={{ x: -288 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}>
-              <Sidebar user={user} onClose={() => setMobileOpen(false)} />
+              <Sidebar user={user} onClose={() => setMobileOpen(false)} businessMode={businessMode} />
             </motion.aside>
           </>
         )}
@@ -235,6 +241,7 @@ export function DashboardLayout({ children, user, showTutorial = false }: { chil
       </div>
 
       {tutorialOpen && <TutorialOverlay onClose={() => setTutorialOpen(false)} />}
+      <QuickAddFab />
     </div>
   );
 }

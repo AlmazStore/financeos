@@ -9,15 +9,20 @@ export default async function Layout({ children }: { children: React.ReactNode }
 
   const profile = await db.onboardingProfile.findUnique({
     where: { userId: session.user.id },
-    select: { isCompleted: true, tutorialDone: true },
+    select: { isCompleted: true, tutorialDone: true, profileType: true, hasTeam: true },
   });
 
   if (!profile?.isCompleted) {
     redirect("/onboarding");
   }
 
+  const businessMode =
+    profile.profileType === "SMALL_BUSINESS" ||
+    profile.profileType === "ENTERPRISE" ||
+    profile.hasTeam === true;
+
   return (
-    <DashboardLayout user={session.user ?? {}} showTutorial={!profile.tutorialDone}>
+    <DashboardLayout user={session.user ?? {}} showTutorial={!profile.tutorialDone} businessMode={businessMode}>
       {children}
     </DashboardLayout>
   );

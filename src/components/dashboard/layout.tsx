@@ -5,10 +5,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { signOut } from "next-auth/react";
+import { TutorialOverlay } from "@/components/tutorial/TutorialOverlay";
 import {
   BarChart3, Bell, Bot, Building2, CreditCard,
   LayoutDashboard, LogOut, Menu, Moon, Plus,
-  Settings, Sun, TrendingUp, User, Wallet, X, Zap,
+  Settings, Sun, TrendingUp, User, Wallet, X, Zap, BookOpen,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -132,7 +133,7 @@ function Sidebar({ user, onClose }: { user: SessionUser; onClose?: () => void })
   );
 }
 
-function TopBar({ onMenuClick, user }: { onMenuClick: () => void; user: SessionUser }) {
+function TopBar({ onMenuClick, user, onTutorial }: { onMenuClick: () => void; user: SessionUser; onTutorial?: () => void }) {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
 
@@ -171,6 +172,14 @@ function TopBar({ onMenuClick, user }: { onMenuClick: () => void; user: SessionU
           <Moon className="absolute w-4 h-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
         </button>
 
+        <button
+          onClick={onTutorial}
+          title="Ver tutorial"
+          className="w-9 h-9 rounded-lg border border-border hover:bg-accent flex items-center justify-center transition-colors"
+        >
+          <BookOpen className="w-4 h-4" />
+        </button>
+
         <button className="relative w-9 h-9 rounded-lg border border-border hover:bg-accent flex items-center justify-center transition-colors">
           <Bell className="w-4 h-4" />
         </button>
@@ -186,8 +195,9 @@ function TopBar({ onMenuClick, user }: { onMenuClick: () => void; user: SessionU
   );
 }
 
-export function DashboardLayout({ children, user }: { children: React.ReactNode; user: SessionUser }) {
+export function DashboardLayout({ children, user, showTutorial = false }: { children: React.ReactNode; user: SessionUser; showTutorial?: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(showTutorial);
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -212,9 +222,11 @@ export function DashboardLayout({ children, user }: { children: React.ReactNode;
       </AnimatePresence>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <TopBar onMenuClick={() => setMobileOpen(true)} user={user} />
+        <TopBar onMenuClick={() => setMobileOpen(true)} user={user} onTutorial={() => setTutorialOpen(true)}  />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
+
+      {tutorialOpen && <TutorialOverlay onClose={() => setTutorialOpen(false)} />}
     </div>
   );
 }

@@ -40,7 +40,9 @@
       "Bash(curl -s \"https://financeos-app-chi.vercel.app/api/dbtest\" -m 60)",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k,'→',v\\) for k,v in d.items\\(\\)]\")",
       "Bash(rm -rf src/app/api/dbtest)",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(curl -s -X POST https://financeos-app-chi.vercel.app/api/auth/register -H 'Content-Type: application/json' -d '{\"name\":\"João Silva\",\"email\":\"joao@teste.com\",\"password\":\"senha123456\"}' -w '\\\\nHTTP:%{http_code}')",
+      "Bash(npx tsc *)"
     ]
   }
 }

@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -17,16 +18,59 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  transactions  Transaction[]
-  categories    Category[]
-  goals         Goal[]
-  companies     CompanyMember[]
-  budgets       Budget[]
-  notifications Notification[]
+  accounts         Account[]
+  sessions         Session[]
+  transactions     Transaction[]
+  categories       Category[]
+  goals            Goal[]
+  companies        CompanyMember[]
+  budgets          Budget[]
+  notifications    Notification[]
+  onboardingProfile OnboardingProfile?
 
   @@map("users")
+}
+
+model OnboardingProfile {
+  id               String         @id @default(cuid())
+  userId           String         @unique
+  profileType      ProfileType
+  mainGoal         MainGoal
+  monthlyRevenue   RevenueRange
+  mainExpenses     String[]
+  hasTeam          Boolean        @default(false)
+  businessSector   String?
+  isCompleted      Boolean        @default(false)
+  tutorialDone     Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("onboarding_profiles")
+}
+
+enum ProfileType {
+  PERSONAL
+  FREELANCER
+  SMALL_BUSINESS
+  ENTERPRISE
+}
+
+enum MainGoal {
+  SAVE_MONEY
+  CONTROL_SPENDING
+  GROW_BUSINESS
+  PAY_DEBT
+  INVEST
+}
+
+enum RevenueRange {
+  UNDER_2K
+  FROM_2K_TO_5K
+  FROM_5K_TO_15K
+  FROM_15K_TO_50K
+  OVER_50K
 }
 
 model Account {

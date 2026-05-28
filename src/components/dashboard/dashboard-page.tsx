@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
 import {
   cn, formatCurrency, formatDate, formatPercentage,
   calculatePercentage,
@@ -91,7 +92,9 @@ export function DashboardPage() {
   const savings = totalIncome - totalExpenses;
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px]">
+    <div className="space-y-6 max-w-[1600px]">
+      <WelcomeBanner />
+      <div className="px-4 sm:px-6 space-y-6 pb-6">
       {/* Welcome bar */}
       <motion.div
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
@@ -463,6 +466,7 @@ export function DashboardPage() {
           ))}
         </div>
       </motion.div>
+      </div>
     </div>
   );
 }

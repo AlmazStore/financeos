@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   ArrowDownLeft, ArrowUpRight, Check, Plus, Search,
-  Trash2, TrendingDown, TrendingUp, Receipt, Loader2, Upload, Pencil,
+  Trash2, TrendingDown, TrendingUp, Receipt, Loader2, Upload, Pencil, Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
@@ -46,6 +46,8 @@ export default function TransactionsPage() {
   const [catEditor, setCatEditor] = useState<CatEditor | null>(null);
   const [savingCat, setSavingCat] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [dedupOpen, setDedupOpen] = useState(false);
+  const [deduping, setDeduping] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -156,6 +158,26 @@ export default function TransactionsPage() {
     }
   };
 
+  const removeDuplicates = async () => {
+    setDeduping(true);
+    try {
+      const res = await fetch("/api/transactions/dedup", { method: "POST" });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setDedupOpen(false);
+      if (data.removed > 0) {
+        toast(`${data.removed} ${data.removed === 1 ? "duplicada removida" : "duplicadas removidas"}.`, "success");
+        load();
+      } else {
+        toast("Nenhuma duplicada encontrada.", "info");
+      }
+    } catch {
+      toast("Erro ao remover duplicadas.", "error");
+    } finally {
+      setDeduping(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     setDeletingId(id);
     try {
@@ -199,7 +221,13 @@ export default function TransactionsPage() {
             {loading ? "Carregando..." : `${filtered.length} transações`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {transactions.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setDedupOpen(true)}>
+              <Copy className="w-4 h-4" />
+              Remover duplicadas
+            </Button>
+          )}
           <Button variant="outline" size="sm" asChild>
             <Link href="/transactions/import">
               <Upload className="w-4 h-4" />
@@ -520,6 +548,32 @@ export default function TransactionsPage() {
               <Link href="/categories">Gerenciar categorias</Link>
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove duplicates confirmation */}
+      <Dialog open={dedupOpen} onOpenChange={(o) => !o && setDedupOpen(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remover transações duplicadas</DialogTitle>
+            <DialogDescription>
+              Vamos procurar transações repetidas (mesma data, valor, tipo e descrição) e
+              manter apenas a <strong>primeira</strong> de cada — as cópias criadas depois serão excluídas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20 my-2">
+            <Copy className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground">
+              Esta ação não pode ser desfeita. Transações legítimas com exatamente os mesmos dados
+              também são consideradas duplicadas.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDedupOpen(false)}>Cancelar</Button>
+            <Button variant="premium" onClick={removeDuplicates} disabled={deduping}>
+              {deduping ? <Loader2 className="w-4 h-4 animate-spin" /> : "Remover duplicadas"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -421,7 +421,7 @@ export async function POST(req: Request) {
           break;
         }
         console.error("[ai/chat] provider", res.status, errText);
-        return NextResponse.json({ answer: answerQuestion(lastUser, analysis), engine: "rules-fallback", changed, debug: `provider ${res.status}: ${errText.slice(0, 300)}` });
+        return NextResponse.json({ answer: answerQuestion(lastUser, analysis), engine: "rules-fallback", changed });
       }
       const data = await res.json();
       const msg = data?.choices?.[0]?.message as LLMMessage | undefined;
@@ -448,6 +448,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ answer: finalText, engine: "llm", changed });
   } catch (err) {
     console.error("[ai/chat]", err);
-    return NextResponse.json({ answer: answerQuestion(lastUser, analysis), engine: "rules-fallback", changed: false, debug: `exception: ${err instanceof Error ? err.message : String(err)}` });
+    return NextResponse.json({ answer: answerQuestion(lastUser, analysis), engine: "rules-fallback", changed: false });
   }
 }

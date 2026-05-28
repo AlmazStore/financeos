@@ -380,8 +380,9 @@ export async function POST(req: Request) {
         body: JSON.stringify({ model: LLM_MODEL, messages, tools: TOOLS, tool_choice: "auto", max_tokens: 900, temperature: 0.5 }),
       });
       if (!res.ok) {
-        console.error("[ai/chat] provider", res.status, await res.text().catch(() => ""));
-        return NextResponse.json({ answer: answerQuestion(lastUser, analysis), engine: "rules-fallback", changed });
+        const errText = await res.text().catch(() => "");
+        console.error("[ai/chat] provider", res.status, errText);
+        return NextResponse.json({ answer: answerQuestion(lastUser, analysis), engine: "rules-fallback", changed, debug: `provider ${res.status}: ${errText.slice(0, 400)}` });
       }
       const data = await res.json();
       const msg = data?.choices?.[0]?.message as LLMMessage | undefined;
@@ -408,6 +409,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ answer: finalText, engine: "llm", changed });
   } catch (err) {
     console.error("[ai/chat]", err);
-    return NextResponse.json({ answer: answerQuestion(lastUser, analysis), engine: "rules-fallback", changed: false });
+    return NextResponse.json({ answer: answerQuestion(lastUser, analysis), engine: "rules-fallback", changed: false, debug: `exception: ${err instanceof Error ? err.message : String(err)}` });
   }
 }

@@ -38,6 +38,7 @@ export async function POST(req: Request) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: "Dados inválidos." }, { status: 422 });
     }
+    console.error("[register] error:", err);
     return NextResponse.json({ error: "Erro interno." }, { status: 500 });
   }
 }

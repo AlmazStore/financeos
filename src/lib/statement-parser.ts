@@ -5,7 +5,21 @@ export type ParsedTx = {
   description: string;
   amount: number;      // always positive
   type: "INCOME" | "EXPENSE";
+  fitid?: string;      // bank's unique transaction id (OFX), when available
 };
+
+/**
+ * Stable fingerprint used to deduplicate transactions across repeated imports.
+ * Prefers the bank's FITID; otherwise hashes date + amount + type + description.
+ * Must produce identical output on client and server.
+ */
+export function transactionHash(tx: {
+  date: string; amount: number; type: string; description: string; fitid?: string;
+}): string {
+  if (tx.fitid && tx.fitid.trim()) return `fit:${tx.fitid.trim()}`;
+  const norm = tx.description.toLowerCase().replace(/\s+/g, " ").trim().slice(0, 40);
+  return `h:${tx.date}|${tx.amount.toFixed(2)}|${tx.type}|${norm}`;
+}
 
 /* -------------------- helpers -------------------- */
 
@@ -69,6 +83,7 @@ export function parseOFX(text: string): ParsedTx[] {
     const dateMatch = block.match(/<DTPOSTED>\s*([^<\r\n]+)/i);
     const memoMatch = block.match(/<MEMO>\s*([^<\r\n]+)/i);
     const nameMatch = block.match(/<NAME>\s*([^<\r\n]+)/i);
+    const fitMatch = block.match(/<FITID>\s*([^<\r\n]+)/i);
 
     if (!amtMatch || !dateMatch) continue;
 
@@ -83,6 +98,7 @@ export function parseOFX(text: string): ParsedTx[] {
       description,
       amount: Math.abs(amount),
       type: amount < 0 ? "EXPENSE" : "INCOME",
+      fitid: fitMatch?.[1]?.trim(),
     });
   }
   return txs;

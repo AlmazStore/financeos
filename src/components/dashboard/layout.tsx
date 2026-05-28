@@ -9,7 +9,7 @@ import { TutorialOverlay } from "@/components/tutorial/TutorialOverlay";
 import {
   BarChart3, Bell, Bot, Building2, CreditCard,
   LayoutDashboard, LogOut, Menu, Moon, Plus,
-  Settings, Sun, TrendingUp, User, Wallet, X, Zap, BookOpen,
+  Settings, Sun, TrendingUp, User, Wallet, X, Zap, BookOpen, Tag,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ const NAV_ITEMS = [
     items: [
       { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
       { href: "/transactions", icon: CreditCard, label: "Transações" },
+      { href: "/categories", icon: Tag, label: "Categorias" },
       { href: "/goals", icon: TrendingUp, label: "Metas" },
       { href: "/reports", icon: BarChart3, label: "Relatórios" },
       { href: "/ai", icon: Bot, label: "IA Financeira", badge: "Pro" },
@@ -142,6 +143,8 @@ function TopBar({ onMenuClick, user, onTutorial }: { onMenuClick: () => void; us
       "/dashboard": "Dashboard",
       "/transactions": "Transações",
       "/transactions/new": "Nova Transação",
+      "/transactions/import": "Importar Extrato",
+      "/categories": "Categorias",
       "/goals": "Metas",
       "/reports": "Relatórios",
       "/ai": "IA Financeira",

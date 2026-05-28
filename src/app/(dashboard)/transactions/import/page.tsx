@@ -5,16 +5,16 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, UploadCloud, FileText, Loader2, CheckCircle2,
-  TrendingUp, TrendingDown, AlertCircle, Trash2, Sparkles,
+  TrendingUp, TrendingDown, AlertCircle, Trash2, Sparkles, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
-import { parseStatement, guessCategoryId, type ParsedTx } from "@/lib/statement-parser";
+import { parseStatement, guessCategoryId, transactionHash, type ParsedTx } from "@/lib/statement-parser";
 
 type Category = { id: string; name: string; icon: string | null; type: string };
 
-type Row = ParsedTx & { id: number; categoryId: string | null; include: boolean };
+type Row = ParsedTx & { id: number; categoryId: string | null; include: boolean; hash: string; already: boolean };
 
 export default function ImportPage() {
   const router = useRouter();
@@ -45,15 +45,38 @@ export default function ImportPage() {
         return;
       }
 
-      const newRows: Row[] = parsed.map((tx, i) => ({
+      const withHash = parsed.map((tx, i) => ({
         ...tx,
         id: i,
+        hash: transactionHash(tx),
         categoryId: guessCategoryId(tx.description, tx.type, categories),
-        include: true,
       }));
+
+      // Check which transactions were already imported (daily update / dedup)
+      let existing = new Set<string>();
+      try {
+        const res = await fetch("/api/transactions/import/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ hashes: withHash.map((r) => r.hash) }),
+        });
+        const data = await res.json();
+        existing = new Set<string>(data.existing ?? []);
+      } catch {}
+
+      const newRows: Row[] = withHash.map((r) => {
+        const already = existing.has(r.hash);
+        return { ...r, already, include: !already };
+      });
 
       setRows(newRows);
       setStep("preview");
+
+      const novas = newRows.filter((r) => !r.already).length;
+      const repetidas = newRows.length - novas;
+      if (repetidas > 0) {
+        toast(`${novas} novas, ${repetidas} já estavam no sistema (ignoradas).`, "info");
+      }
     } catch {
       toast("Erro ao ler o arquivo.", "error");
     } finally {
@@ -89,6 +112,7 @@ export default function ImportPage() {
             type: r.type,
             date: r.date,
             categoryId: r.categoryId,
+            importHash: r.hash,
           })),
         }),
       });
@@ -110,8 +134,8 @@ export default function ImportPage() {
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div>
-          <h2 className="text-xl font-bold">Importar Extrato</h2>
-          <p className="text-sm text-muted-foreground">Leia automaticamente as transações do seu banco</p>
+          <h2 className="text-xl font-bold">Importar / Atualizar Extrato</h2>
+          <p className="text-sm text-muted-foreground">Reenvie seu extrato quando quiser — só as transações novas entram</p>
         </div>
       </div>
 
@@ -168,6 +192,12 @@ export default function ImportPage() {
               <Sparkles className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-muted-foreground">
                 O sistema lê as datas, valores e descrições automaticamente e ainda <strong>sugere a categoria</strong> de cada gasto. Você revisa tudo antes de salvar.
+              </p>
+            </div>
+            <div className="mt-2 flex items-start gap-2 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+              <RefreshCw className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground">
+                <strong>Atualização diária:</strong> pode reenviar o extrato todo dia. O sistema reconhece o que já foi importado e adiciona <strong>apenas as transações novas</strong> — sem duplicar nada.
               </p>
             </div>
           </div>
@@ -229,7 +259,12 @@ export default function ImportPage() {
 
                     <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(new Date(row.date))}</span>
 
-                    <span className="truncate font-medium" title={row.description}>{row.description}</span>
+                    <span className="truncate font-medium flex items-center gap-1.5" title={row.description}>
+                      {row.description}
+                      {row.already && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground whitespace-nowrap flex-shrink-0">já importada</span>
+                      )}
+                    </span>
 
                     <select
                       value={row.categoryId ?? ""}

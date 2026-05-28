@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -165,7 +166,10 @@ export default function NewTransactionPage() {
 
           {/* Category */}
           <div className="space-y-3">
-            <label className="text-sm font-medium">Categoria</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Categoria</label>
+              <Link href="/categories" className="text-xs text-primary hover:underline">Editar categorias</Link>
+            </div>
             {visibleCategories.length === 0 ? (
               <p className="text-xs text-muted-foreground">Carregando categorias...</p>
             ) : (

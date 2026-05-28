@@ -165,6 +165,7 @@ model Transaction {
   tags          String[]
   attachments   String[]
   notes         String?
+  importHash    String?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
@@ -177,6 +178,7 @@ model Transaction {
 
   @@index([userId, date])
   @@index([companyId, date])
+  @@index([userId, importHash])
   @@map("transactions")
 }
 

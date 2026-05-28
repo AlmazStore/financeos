@@ -331,6 +331,22 @@ async function executeTool(name: string, args: any, userId: string, cats: Cat[])
   }
 }
 
+// Some Llama models on Groq occasionally emit tool calls in the wrong format
+// (<function=name={...}</function>), which Groq rejects with tool_use_failed.
+// Recover the intended call from the error's failed_generation.
+function parseFailedToolCalls(errBody: string): { name: string; args: any }[] {
+  let failed = "";
+  try { failed = JSON.parse(errBody)?.error?.failed_generation ?? ""; } catch { failed = errBody; }
+  if (!failed) return [];
+  const calls: { name: string; args: any }[] = [];
+  const re = /<function=([a-zA-Z_]+)[=>\s]*(\{[\s\S]*?\})\s*<\/function>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(failed)) !== null) {
+    try { calls.push({ name: m[1], args: JSON.parse(m[2]) }); } catch { /* ignore */ }
+  }
+  return calls;
+}
+
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -377,12 +393,35 @@ export async function POST(req: Request) {
       const res = await fetch(`${LLM_BASE_URL}/chat/completions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: LLM_MODEL, messages, tools: TOOLS, tool_choice: "auto", max_tokens: 900, temperature: 0.5 }),
+        body: JSON.stringify({ model: LLM_MODEL, messages, tools: TOOLS, tool_choice: "auto", max_tokens: 900, temperature: 0.3 }),
       });
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
+        // Recover malformed tool calls (Groq tool_use_failed)
+        const salvaged = parseFailedToolCalls(errText);
+        if (salvaged.length) {
+          const results: string[] = [];
+          for (const { name, args } of salvaged) {
+            const { result, changed: c } = await executeTool(name, args, userId, catRows);
+            if (c) changed = true;
+            results.push(`[${name}] ${result}`);
+          }
+          messages.push({ role: "assistant", content: "Resultado das ações/consultas:\n" + results.join("\n") });
+          messages.push({ role: "user", content: "Com base nesses resultados, responda minha mensagem anterior de forma concisa, em português, citando os valores." });
+          const res2 = await fetch(`${LLM_BASE_URL}/chat/completions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({ model: LLM_MODEL, messages, max_tokens: 700, temperature: 0.4 }),
+          });
+          if (res2.ok) {
+            const d2 = await res2.json();
+            finalText = (d2?.choices?.[0]?.message?.content ?? "").trim();
+          }
+          if (!finalText) finalText = changed ? results.join(" ") : results.join("\n");
+          break;
+        }
         console.error("[ai/chat] provider", res.status, errText);
-        return NextResponse.json({ answer: answerQuestion(lastUser, analysis), engine: "rules-fallback", changed, debug: `provider ${res.status}: ${errText.slice(0, 400)}` });
+        return NextResponse.json({ answer: answerQuestion(lastUser, analysis), engine: "rules-fallback", changed, debug: `provider ${res.status}: ${errText.slice(0, 300)}` });
       }
       const data = await res.json();
       const msg = data?.choices?.[0]?.message as LLMMessage | undefined;

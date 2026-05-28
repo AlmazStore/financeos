@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui/toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import { notifyDataChanged } from "@/lib/events";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 const TYPE_FILTERS = ["Todas", "Entradas", "Saídas", "Pendentes"];
@@ -128,6 +129,7 @@ export default function TransactionsPage() {
         setSelected(new Set());
       }
       toast("Categoria atualizada!", "success");
+      notifyDataChanged();
       setCatEditor(null);
     } catch {
       toast("Erro ao atualizar categoria.", "error");
@@ -151,6 +153,7 @@ export default function TransactionsPage() {
       setTransactions((prev) => prev.filter((t) => !idset.has(t.id)));
       setSelected(new Set());
       toast(`${ids.length} transações excluídas.`, "success");
+      notifyDataChanged();
     } catch {
       toast("Erro ao excluir.", "error");
     } finally {
@@ -168,6 +171,7 @@ export default function TransactionsPage() {
       if (data.removed > 0) {
         toast(`${data.removed} ${data.removed === 1 ? "duplicada removida" : "duplicadas removidas"}.`, "success");
         load();
+        notifyDataChanged();
       } else {
         toast("Nenhuma duplicada encontrada.", "info");
       }
@@ -185,6 +189,7 @@ export default function TransactionsPage() {
       if (!res.ok) throw new Error();
       setTransactions((prev) => prev.filter((t) => t.id !== id));
       toast("Transação excluída.", "success");
+      notifyDataChanged();
     } catch {
       toast("Erro ao excluir.", "error");
     } finally {
@@ -426,6 +431,8 @@ export default function TransactionsPage() {
                         <Check className="w-2.5 h-2.5" />
                         Concluído
                       </Badge>
+                    ) : t.status === "CANCELLED" ? (
+                      <Badge variant="outline" className="text-amber-400 border-amber-400/30">Cancelado</Badge>
                     ) : (
                       <Badge variant="warning">Pendente</Badge>
                     )}

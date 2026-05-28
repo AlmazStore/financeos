@@ -10,11 +10,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
-import { parseStatement, guessCategoryId, transactionHash, fallbackHash, type ParsedTx } from "@/lib/statement-parser";
+import { parseStatement, guessCategoryId, transactionHash, fallbackHash, isCancelledDescription, type ParsedTx } from "@/lib/statement-parser";
+import { notifyDataChanged } from "@/lib/events";
 
 type Category = { id: string; name: string; icon: string | null; type: string };
 
-type Row = ParsedTx & { id: number; categoryId: string | null; include: boolean; hash: string; fallback: string; already: boolean };
+type Row = ParsedTx & { id: number; categoryId: string | null; include: boolean; hash: string; fallback: string; already: boolean; cancelled: boolean };
 
 export default function ImportPage() {
   const router = useRouter();
@@ -70,7 +71,7 @@ export default function ImportPage() {
 
       const newRows: Row[] = withHash.map((r) => {
         const already = existing.has(r.hash) || existing.has(r.fallback);
-        return { ...r, already, include: !already };
+        return { ...r, already, include: !already, cancelled: isCancelledDescription(r.description) };
       });
 
       setRows(newRows);
@@ -99,8 +100,9 @@ export default function ImportPage() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
 
   const included = rows.filter((r) => r.include);
-  const totalIncome = included.filter((r) => r.type === "INCOME").reduce((a, b) => a + b.amount, 0);
-  const totalExpense = included.filter((r) => r.type === "EXPENSE").reduce((a, b) => a + b.amount, 0);
+  const totalIncome = included.filter((r) => r.type === "INCOME" && !r.cancelled).reduce((a, b) => a + b.amount, 0);
+  const totalExpense = included.filter((r) => r.type === "EXPENSE" && !r.cancelled).reduce((a, b) => a + b.amount, 0);
+  const cancelledCount = included.filter((r) => r.cancelled).length;
 
   const confirmImport = async () => {
     if (included.length === 0) { toast("Selecione ao menos uma transação.", "error"); return; }
@@ -117,12 +119,14 @@ export default function ImportPage() {
             date: r.date,
             categoryId: r.categoryId,
             importHash: r.hash,
+            status: r.cancelled ? "CANCELLED" : "COMPLETED",
           })),
         }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
       toast(`${data.imported} transações importadas com sucesso!`, "success");
+      notifyDataChanged();
       router.push("/transactions");
       router.refresh();
     } catch {
@@ -265,6 +269,9 @@ export default function ImportPage() {
 
                     <span className="truncate font-medium flex items-center gap-1.5" title={row.description}>
                       {row.description}
+                      {row.cancelled && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 whitespace-nowrap flex-shrink-0">cancelado</span>
+                      )}
                       {row.already && (
                         <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground whitespace-nowrap flex-shrink-0">já importada</span>
                       )}

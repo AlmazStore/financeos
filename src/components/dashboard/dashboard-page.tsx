@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import {
   Bot, PiggyBank, TrendingDown, TrendingUp, Wallet, Loader2,
-  ArrowRight, Sparkles,
+  ArrowRight, Sparkles, XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
 import { GettingStarted } from "@/components/dashboard/getting-started";
 import { AddAccountDialog } from "@/components/dashboard/add-account-dialog";
 import { cn, formatCurrency, formatDate, formatPercentage, calculatePercentage } from "@/lib/utils";
+import { useAutoRefresh } from "@/lib/events";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -58,6 +59,8 @@ type DashboardData = {
     savings: number;
     incomeChange: number;
     expensesChange: number;
+    cancelledTotal: number;
+    cancelledCount: number;
   };
   monthlyData: { month: string; income: number; expenses: number; savings: number }[];
   categoryData: { id: string; name: string; value: number; color: string; icon: string; percentage: number }[];
@@ -87,6 +90,7 @@ export function DashboardPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useAutoRefresh(load);
 
   const firstName = session?.user?.name?.split(" ")[0] ?? "";
 
@@ -105,6 +109,7 @@ export function DashboardPage() {
 
   const summary = data?.summary ?? {
     totalBalance: 0, currentIncome: 0, currentExpenses: 0, savings: 0, incomeChange: 0, expensesChange: 0,
+    cancelledTotal: 0, cancelledCount: 0,
   };
 
   return (
@@ -176,6 +181,26 @@ export function DashboardPage() {
                 delay={0.3}
               />
             </div>
+
+            {/* Pix cancelado */}
+            {summary.cancelledCount > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-center gap-3"
+              >
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                  <XCircle className="w-5 h-5 text-amber-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">Pix cancelado</p>
+                  <p className="text-xs text-muted-foreground">
+                    {summary.cancelledCount} {summary.cancelledCount === 1 ? "transação cancelada" : "transações canceladas"} este mês — não entram nas saídas
+                  </p>
+                </div>
+                <p className="text-lg font-bold text-amber-400 flex-shrink-0">{formatCurrency(summary.cancelledTotal)}</p>
+              </motion.div>
+            )}
 
             {/* Charts row */}
             <div className="grid xl:grid-cols-3 gap-6">

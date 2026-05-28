@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { notifyDataChanged } from "@/lib/events";
 import { cn } from "@/lib/utils";
 
 type Category = {
@@ -85,6 +86,7 @@ export default function NewTransactionPage() {
         type === "INCOME" ? "Entrada registrada com sucesso!" : "Saída registrada com sucesso!",
         "success"
       );
+      notifyDataChanged();
       router.push("/transactions");
       router.refresh();
     } catch {

@@ -12,6 +12,7 @@ const txSchema = z.object({
   date: z.string(),
   categoryId: z.string().nullable().optional(),
   importHash: z.string().optional(),
+  status: z.enum(["PENDING", "COMPLETED", "CANCELLED"]).optional(),
 });
 
 const schema = z.object({
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
           amount: t.amount,
           type: t.type,
           date: new Date(t.date),
-          status: "COMPLETED" as const,
+          status: t.status ?? "COMPLETED",
           categoryId: t.categoryId && validCatIds.has(t.categoryId) ? t.categoryId : null,
           importHash: t.importHash ?? null,
           userId,

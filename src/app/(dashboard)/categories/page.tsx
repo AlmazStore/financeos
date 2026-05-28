@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
+import { notifyDataChanged } from "@/lib/events";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription, DialogFooter,
@@ -77,6 +78,7 @@ export default function CategoriesPage() {
       });
       if (!res.ok) throw new Error();
       toast(editing ? "Categoria atualizada!" : "Categoria criada!", "success");
+      notifyDataChanged();
       setOpen(false);
       load();
     } catch {
@@ -92,6 +94,7 @@ export default function CategoriesPage() {
       if (!res.ok) throw new Error();
       setCategories((prev) => prev.filter((c) => c.id !== id));
       toast("Categoria excluída. As transações ficaram sem categoria.", "success");
+      notifyDataChanged();
     } catch {
       toast("Erro ao excluir.", "error");
     }

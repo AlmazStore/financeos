@@ -14,6 +14,7 @@ import {
   ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { useAutoRefresh } from "@/lib/events";
 
 type Upcoming = {
   id: string; name: string; amount: number; date: string;
@@ -39,6 +40,7 @@ export default function CashflowPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useAutoRefresh(load);
 
   const totals = data?.totals ?? { receivable: 0, payable: 0, balance: 0 };
   const upcoming = data?.upcoming ?? [];

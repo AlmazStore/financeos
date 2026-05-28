@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { notifyDataChanged } from "@/lib/events";
 import { cn } from "@/lib/utils";
 
 const GOAL_TYPES = [
@@ -55,6 +56,7 @@ export function CreateGoalDialog({ onCreated }: { onCreated?: () => void }) {
       });
       if (!res.ok) throw new Error();
       toast("Meta criada!", "success");
+      notifyDataChanged();
       setOpen(false);
       setTitle(""); setDescription(""); setTargetAmount(""); setCurrentAmount(""); setDeadline("");
       onCreated?.();
@@ -162,6 +164,7 @@ export function AddValueDialog({ goalId, goalTitle, onDone }: { goalId: string; 
       });
       if (!res.ok) throw new Error();
       toast(`R$ ${amount.toFixed(2)} adicionados à meta!`, "success");
+      notifyDataChanged();
       setOpen(false);
       setValue("");
       onDone?.();

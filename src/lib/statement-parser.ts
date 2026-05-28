@@ -32,6 +32,11 @@ export function fallbackHash(tx: {
   return `h:${tx.date}|${tx.amount.toFixed(2)}|${tx.type}|${norm}`;
 }
 
+/** Detects cancelled transactions (e.g. "Pix cancelado", "Compra cancelada"). */
+export function isCancelledDescription(description: string): boolean {
+  return /cancelad[oa]/i.test(description);
+}
+
 /* -------------------- helpers -------------------- */
 
 function toISODate(raw: string): string | null {

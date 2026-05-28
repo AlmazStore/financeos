@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
+import { notifyDataChanged } from "@/lib/events";
 import { CreateGoalDialog, AddValueDialog } from "@/components/dashboard/goal-dialogs";
 import { cn, formatCurrency, formatDate, formatPercentage, calculatePercentage } from "@/lib/utils";
 
@@ -42,6 +43,7 @@ export default function GoalsPage() {
       if (!res.ok) throw new Error();
       setGoals((prev) => prev.filter((g) => g.id !== id));
       toast("Meta excluída.", "success");
+      notifyDataChanged();
     } catch {
       toast("Erro ao excluir.", "error");
     }

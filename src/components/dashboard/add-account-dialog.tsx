@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { notifyDataChanged } from "@/lib/events";
 import { cn } from "@/lib/utils";
 
 const ACCOUNT_TYPES = [
@@ -48,6 +49,7 @@ export function AddAccountDialog({ onCreated, trigger }: { onCreated?: () => voi
       });
       if (!res.ok) throw new Error();
       toast("Conta adicionada!", "success");
+      notifyDataChanged();
       setOpen(false);
       setName(""); setBalance(""); setType("CHECKING");
       onCreated?.();

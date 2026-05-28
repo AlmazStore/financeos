@@ -21,6 +21,7 @@ export async function GET() {
     goals,
     recentTransactions,
     categories,
+    cancelledTx,
   ] = await Promise.all([
     db.transaction.findMany({
       where: { userId, date: { gte: monthStart, lte: monthEnd }, status: "COMPLETED" },
@@ -38,7 +39,12 @@ export async function GET() {
       take: 8,
     }),
     db.category.findMany({ where: { userId } }),
+    db.transaction.findMany({
+      where: { userId, date: { gte: monthStart, lte: monthEnd }, status: "CANCELLED" },
+    }),
   ]);
+
+  const cancelledTotal = cancelledTx.reduce((a, b) => a + b.amount, 0);
 
   const currentIncome = currentMonthTx
     .filter((t) => t.type === "INCOME")
@@ -123,6 +129,8 @@ export async function GET() {
       savings: currentIncome - currentExpenses,
       incomeChange,
       expensesChange,
+      cancelledTotal,
+      cancelledCount: cancelledTx.length,
     },
     monthlyData,
     categoryData,

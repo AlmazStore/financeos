@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency } from "@/lib/utils";
+import { useAutoRefresh } from "@/lib/events";
 
 const QUICK_QUESTIONS = [
   "Como posso economizar mais este mês?",
@@ -43,12 +44,15 @@ export default function AIPage() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const loadInsights = useCallback(() => {
     fetch("/api/ai/insights")
       .then((r) => r.json())
       .then((d) => setAnalysis(d))
       .catch(() => {});
   }, []);
+
+  useEffect(() => { loadInsights(); }, [loadInsights]);
+  useAutoRefresh(loadInsights);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });

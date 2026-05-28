@@ -1,0 +1,343 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  transactions  Transaction[]
+  categories    Category[]
+  goals         Goal[]
+  companies     CompanyMember[]
+  budgets       Budget[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  icon        String?
+  color       String?
+  type        CategoryType @default(EXPENSE)
+  userId      String?
+  companyId   String?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company      Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  budgets      Budget[]
+  subcategories Subcategory[]
+
+  @@map("categories")
+}
+
+model Subcategory {
+  id         String   @id @default(cuid())
+  name       String
+  categoryId String
+  createdAt  DateTime @default(now())
+
+  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@map("subcategories")
+}
+
+model Transaction {
+  id            String          @id @default(cuid())
+  title         String
+  description   String?
+  amount        Float
+  type          TransactionType
+  status        TransactionStatus @default(COMPLETED)
+  date          DateTime
+  dueDate       DateTime?
+  categoryId    String?
+  subcategoryId String?
+  userId        String?
+  companyId     String?
+  accountId     String?
+  isRecurring   Boolean         @default(false)
+  recurringId   String?
+  installmentTotal   Int?
+  installmentCurrent Int?
+  tags          String[]
+  attachments   String[]
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  user        User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company     Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category    Category?     @relation(fields: [categoryId], references: [id])
+  subcategory Subcategory?  @relation(fields: [subcategoryId], references: [id])
+  account     FinancialAccount? @relation(fields: [accountId], references: [id])
+  recurring   RecurringTransaction? @relation(fields: [recurringId], references: [id])
+
+  @@index([userId, date])
+  @@index([companyId, date])
+  @@map("transactions")
+}
+
+model RecurringTransaction {
+  id          String          @id @default(cuid())
+  title       String
+  amount      Float
+  type        TransactionType
+  frequency   RecurrenceFrequency
+  categoryId  String?
+  userId      String?
+  companyId   String?
+  startDate   DateTime
+  endDate     DateTime?
+  nextDueDate DateTime
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+
+  transactions Transaction[]
+
+  @@map("recurring_transactions")
+}
+
+model FinancialAccount {
+  id        String      @id @default(cuid())
+  name      String
+  type      AccountType
+  balance   Float       @default(0)
+  color     String?
+  icon      String?
+  userId    String?
+  companyId String?
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  transactions Transaction[]
+
+  @@map("financial_accounts")
+}
+
+model Goal {
+  id           String     @id @default(cuid())
+  title        String
+  description  String?
+  targetAmount Float
+  currentAmount Float     @default(0)
+  deadline     DateTime?
+  type         GoalType
+  userId       String
+  companyId    String?
+  color        String?
+  icon         String?
+  isCompleted  Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("goals")
+}
+
+model Budget {
+  id         String   @id @default(cuid())
+  amount     Float
+  spent      Float    @default(0)
+  period     BudgetPeriod
+  month      Int?
+  year       Int?
+  userId     String?
+  companyId  String?
+  categoryId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@map("budgets")
+}
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String
+  cnpj        String?  @unique
+  logo        String?
+  color       String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members      CompanyMember[]
+  transactions Transaction[]
+  categories   Category[]
+  clients      Client[]
+
+  @@map("companies")
+}
+
+model CompanyMember {
+  id        String      @id @default(cuid())
+  userId    String
+  companyId String
+  role      CompanyRole @default(VIEWER)
+  createdAt DateTime    @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@map("company_members")
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  document  String?
+  companyId String
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("clients")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  userId    String
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+  BOTH
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CREDIT_CARD
+  INVESTMENT
+  CASH
+  OTHER
+}
+
+enum GoalType {
+  SAVINGS
+  EMERGENCY_FUND
+  INVESTMENT
+  DEBT_PAYMENT
+  PURCHASE
+  OTHER
+}
+
+enum BudgetPeriod {
+  MONTHLY
+  YEARLY
+  CUSTOM
+}
+
+enum CompanyRole {
+  OWNER
+  ADMIN
+  FINANCIAL
+  VIEWER
+}
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum NotificationType {
+  ALERT
+  REMINDER
+  ACHIEVEMENT
+  INFO
+}

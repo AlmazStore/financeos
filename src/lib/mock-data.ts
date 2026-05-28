@@ -1,0 +1,328 @@
+export const mockUser = {
+  id: "user_1",
+  name: "Rafael Mendes",
+  email: "rafael@financeos.app",
+  image: null,
+  plan: "pro",
+};
+
+export const mockTransactions = [
+  {
+    id: "t1",
+    title: "Salário",
+    amount: 8500,
+    type: "INCOME",
+    category: { name: "Salário", color: "#10b981", icon: "💼" },
+    date: new Date("2024-01-05"),
+    status: "COMPLETED",
+  },
+  {
+    id: "t2",
+    title: "Aluguel",
+    amount: 1800,
+    type: "EXPENSE",
+    category: { name: "Moradia", color: "#ef4444", icon: "🏠" },
+    date: new Date("2024-01-07"),
+    status: "COMPLETED",
+  },
+  {
+    id: "t3",
+    title: "Supermercado",
+    amount: 450.90,
+    type: "EXPENSE",
+    category: { name: "Alimentação", color: "#f59e0b", icon: "🛒" },
+    date: new Date("2024-01-10"),
+    status: "COMPLETED",
+  },
+  {
+    id: "t4",
+    title: "Netflix",
+    amount: 39.90,
+    type: "EXPENSE",
+    category: { name: "Assinaturas", color: "#8b5cf6", icon: "📺" },
+    date: new Date("2024-01-12"),
+    status: "COMPLETED",
+  },
+  {
+    id: "t5",
+    title: "Freelance Design",
+    amount: 2200,
+    type: "INCOME",
+    category: { name: "Freelance", color: "#10b981", icon: "💻" },
+    date: new Date("2024-01-15"),
+    status: "COMPLETED",
+  },
+  {
+    id: "t6",
+    title: "Combustível",
+    amount: 220,
+    type: "EXPENSE",
+    category: { name: "Transporte", color: "#3b82f6", icon: "⛽" },
+    date: new Date("2024-01-17"),
+    status: "COMPLETED",
+  },
+  {
+    id: "t7",
+    title: "Academia",
+    amount: 99.90,
+    type: "EXPENSE",
+    category: { name: "Saúde", color: "#14b8a6", icon: "💪" },
+    date: new Date("2024-01-18"),
+    status: "COMPLETED",
+  },
+  {
+    id: "t8",
+    title: "Restaurante",
+    amount: 180.50,
+    type: "EXPENSE",
+    category: { name: "Alimentação", color: "#f59e0b", icon: "🍽️" },
+    date: new Date("2024-01-20"),
+    status: "COMPLETED",
+  },
+  {
+    id: "t9",
+    title: "Spotify",
+    amount: 21.90,
+    type: "EXPENSE",
+    category: { name: "Assinaturas", color: "#8b5cf6", icon: "🎵" },
+    date: new Date("2024-01-22"),
+    status: "COMPLETED",
+  },
+  {
+    id: "t10",
+    title: "Investimento CDB",
+    amount: 1000,
+    type: "EXPENSE",
+    category: { name: "Investimentos", color: "#6366f1", icon: "📈" },
+    date: new Date("2024-01-25"),
+    status: "COMPLETED",
+  },
+  {
+    id: "t11",
+    title: "Conta de Luz",
+    amount: 187.40,
+    type: "EXPENSE",
+    category: { name: "Moradia", color: "#ef4444", icon: "⚡" },
+    date: new Date("2024-01-26"),
+    status: "PENDING",
+  },
+  {
+    id: "t12",
+    title: "Consulta Médica",
+    amount: 350,
+    type: "EXPENSE",
+    category: { name: "Saúde", color: "#14b8a6", icon: "🏥" },
+    date: new Date("2024-01-28"),
+    status: "COMPLETED",
+  },
+];
+
+export const mockMonthlyData = [
+  { month: "Jul", income: 9200, expenses: 6800, savings: 2400 },
+  { month: "Ago", income: 8800, expenses: 7200, savings: 1600 },
+  { month: "Set", income: 10500, expenses: 6400, savings: 4100 },
+  { month: "Out", income: 9100, expenses: 7100, savings: 2000 },
+  { month: "Nov", income: 11200, expenses: 8300, savings: 2900 },
+  { month: "Dez", income: 13500, expenses: 9800, savings: 3700 },
+  { month: "Jan", income: 10700, expenses: 5349, savings: 5351 },
+];
+
+export const mockWeeklyData = [
+  { day: "Seg", amount: 450 },
+  { day: "Ter", amount: 180 },
+  { day: "Qua", amount: 890 },
+  { day: "Qui", amount: 320 },
+  { day: "Sex", amount: 1200 },
+  { day: "Sáb", amount: 580 },
+  { day: "Dom", amount: 240 },
+];
+
+export const mockCategoryData = [
+  { name: "Moradia", value: 1987.40, color: "#ef4444", percentage: 37.1 },
+  { name: "Alimentação", value: 631.40, color: "#f59e0b", percentage: 11.8 },
+  { name: "Transporte", value: 220, color: "#3b82f6", percentage: 4.1 },
+  { name: "Saúde", value: 449.90, color: "#14b8a6", percentage: 8.4 },
+  { name: "Assinaturas", value: 61.80, color: "#8b5cf6", percentage: 1.2 },
+  { name: "Investimentos", value: 1000, color: "#6366f1", percentage: 18.7 },
+  { name: "Lazer", value: 450, color: "#ec4899", percentage: 8.4 },
+  { name: "Outros", value: 548.50, color: "#84cc16", percentage: 10.3 },
+];
+
+export const mockGoals = [
+  {
+    id: "g1",
+    title: "Reserva de Emergência",
+    description: "6 meses de gastos",
+    targetAmount: 30000,
+    currentAmount: 18500,
+    deadline: new Date("2024-12-31"),
+    type: "EMERGENCY_FUND",
+    color: "#10b981",
+    icon: "🛡️",
+  },
+  {
+    id: "g2",
+    title: "Viagem para Europa",
+    description: "Portugal e Espanha",
+    targetAmount: 15000,
+    currentAmount: 6200,
+    deadline: new Date("2024-07-01"),
+    type: "SAVINGS",
+    color: "#3b82f6",
+    icon: "✈️",
+  },
+  {
+    id: "g3",
+    title: "Novo Notebook",
+    description: "MacBook Pro M3",
+    targetAmount: 12000,
+    currentAmount: 12000,
+    deadline: new Date("2024-03-01"),
+    type: "PURCHASE",
+    color: "#8b5cf6",
+    icon: "💻",
+  },
+  {
+    id: "g4",
+    title: "Investimento Mensal",
+    description: "20% da renda",
+    targetAmount: 2000,
+    currentAmount: 1000,
+    deadline: new Date("2024-01-31"),
+    type: "INVESTMENT",
+    color: "#f59e0b",
+    icon: "📈",
+  },
+];
+
+export const mockAccounts = [
+  {
+    id: "a1",
+    name: "Nubank",
+    type: "CHECKING",
+    balance: 5240.80,
+    color: "#8b5cf6",
+    icon: "💳",
+  },
+  {
+    id: "a2",
+    name: "Itaú",
+    type: "CHECKING",
+    balance: 12800.00,
+    color: "#ef4444",
+    icon: "🏦",
+  },
+  {
+    id: "a3",
+    name: "XP Investimentos",
+    type: "INVESTMENT",
+    balance: 45600.00,
+    color: "#10b981",
+    icon: "📈",
+  },
+  {
+    id: "a4",
+    name: "Cartão Nubank",
+    type: "CREDIT_CARD",
+    balance: -2150.40,
+    color: "#f59e0b",
+    icon: "💳",
+  },
+];
+
+export const mockBudgets = [
+  { category: "Alimentação", budgeted: 800, spent: 631.40, color: "#f59e0b" },
+  { category: "Transporte", budgeted: 400, spent: 220, color: "#3b82f6" },
+  { category: "Saúde", budgeted: 500, spent: 449.90, color: "#14b8a6" },
+  { category: "Lazer", budgeted: 600, spent: 450, color: "#ec4899" },
+  { category: "Assinaturas", budgeted: 150, spent: 61.80, color: "#8b5cf6" },
+];
+
+export const mockCompanies = [
+  {
+    id: "c1",
+    name: "Studio Digital Ltda",
+    cnpj: "12.345.678/0001-90",
+    color: "#8b5cf6",
+    revenue: 45000,
+    expenses: 28000,
+    profit: 17000,
+  },
+  {
+    id: "c2",
+    name: "Loja Online ME",
+    cnpj: "98.765.432/0001-10",
+    color: "#10b981",
+    revenue: 28000,
+    expenses: 19000,
+    profit: 9000,
+  },
+];
+
+export const mockCashFlow = [
+  { date: "01/01", payable: 1800, receivable: 8500 },
+  { date: "05/01", payable: 450, receivable: 0 },
+  { date: "10/01", payable: 220, receivable: 2200 },
+  { date: "15/01", payable: 350, receivable: 0 },
+  { date: "20/01", payable: 180, receivable: 0 },
+  { date: "25/01", payable: 1000, receivable: 0 },
+  { date: "28/01", payable: 350, receivable: 0 },
+];
+
+export const mockInsights = [
+  {
+    id: "i1",
+    type: "warning",
+    title: "Gastos com alimentação acima da média",
+    description: "Você gastou 28% a mais que o mês passado em restaurantes e delivery.",
+    action: "Ver detalhes",
+  },
+  {
+    id: "i2",
+    type: "success",
+    title: "Meta de economia atingida!",
+    description: "Parabéns! Você economizou R$ 5.351 este mês, superando sua meta em 15%.",
+    action: "Ver metas",
+  },
+  {
+    id: "i3",
+    type: "info",
+    title: "Previsão financeira",
+    description: "Com base nos seus hábitos, você terá R$ 67.200 em 12 meses.",
+    action: "Ver previsão",
+  },
+  {
+    id: "i4",
+    type: "alert",
+    title: "3 contas vencem esta semana",
+    description: "Conta de luz (R$ 187), Internet (R$ 120) e condomínio (R$ 450) vencem em breve.",
+    action: "Ver agenda",
+  },
+];
+
+export const mockNotifications = [
+  {
+    id: "n1",
+    title: "Lembrete de vencimento",
+    message: "Conta de luz vence em 3 dias - R$ 187,40",
+    type: "REMINDER",
+    isRead: false,
+    createdAt: new Date(),
+  },
+  {
+    id: "n2",
+    title: "Meta atingida! 🎉",
+    message: "Você atingiu 100% da meta 'Novo Notebook'",
+    type: "ACHIEVEMENT",
+    isRead: false,
+    createdAt: new Date(Date.now() - 3600000),
+  },
+  {
+    id: "n3",
+    title: "Gasto incomum detectado",
+    message: "Despesa de R$ 890 em entretenimento está acima da média",
+    type: "ALERT",
+    isRead: true,
+    createdAt: new Date(Date.now() - 86400000),
+  },
+];

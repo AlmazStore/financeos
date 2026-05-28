@@ -10,6 +10,7 @@ import {
   BarChart3, Bell, Bot, Building2, CreditCard,
   LayoutDashboard, LogOut, Menu, Moon, Plus,
   Settings, Sun, TrendingUp, User, Wallet, X, Zap, BookOpen, Tag,
+  HeartPulse, PiggyBank,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,9 @@ const NAV_ITEMS = [
       { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
       { href: "/transactions", icon: CreditCard, label: "Transações" },
       { href: "/categories", icon: Tag, label: "Categorias" },
+      { href: "/budgets", icon: PiggyBank, label: "Orçamentos" },
       { href: "/goals", icon: TrendingUp, label: "Metas" },
+      { href: "/health", icon: HeartPulse, label: "Saúde Financeira" },
       { href: "/reports", icon: BarChart3, label: "Relatórios" },
       { href: "/ai", icon: Bot, label: "IA Financeira", badge: "Pro" },
     ],
@@ -145,7 +148,9 @@ function TopBar({ onMenuClick, user, onTutorial }: { onMenuClick: () => void; us
       "/transactions/new": "Nova Transação",
       "/transactions/import": "Importar Extrato",
       "/categories": "Categorias",
+      "/budgets": "Orçamentos",
       "/goals": "Metas",
+      "/health": "Saúde Financeira",
       "/reports": "Relatórios",
       "/ai": "IA Financeira",
       "/companies": "Empresas",

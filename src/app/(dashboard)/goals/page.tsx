@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Target, Trophy, TrendingUp, Loader2, Trash2 } from "lucide-react";
+import { Target, Trophy, TrendingUp, Loader2, Trash2, Lightbulb, CalendarClock, Scissors } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { notifyDataChanged } from "@/lib/events";
 import { CreateGoalDialog, AddValueDialog } from "@/components/dashboard/goal-dialogs";
+import { goalTips, type GoalTipCtx } from "@/lib/goal-tips";
 import { cn, formatCurrency, formatDate, formatPercentage, calculatePercentage } from "@/lib/utils";
 
 type Goal = {
@@ -26,6 +27,7 @@ export default function GoalsPage() {
   const { toast } = useToast();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ctx, setCtx] = useState<GoalTipCtx>({ topCategory: null, avgMonthlySavings: 0 });
 
   const load = useCallback(() => {
     fetch("/api/goals")
@@ -36,6 +38,17 @@ export default function GoalsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Spending context for personalized goal tips (biggest category + avg savings)
+  useEffect(() => {
+    fetch("/api/ai/insights")
+      .then((r) => r.json())
+      .then((d) => setCtx({
+        topCategory: d?.topCategories?.[0] ? { name: d.topCategories[0].name, amount: d.topCategories[0].amount } : null,
+        avgMonthlySavings: d?.summary?.avgMonthlySavings ?? 0,
+      }))
+      .catch(() => {});
+  }, []);
 
   const handleDelete = async (id: string) => {
     try {
@@ -173,6 +186,32 @@ export default function GoalsPage() {
                       </p>
                     </div>
                   </div>
+
+                  {!isCompleted && (() => {
+                    const tips = goalTips(
+                      { targetAmount: goal.targetAmount, currentAmount: goal.currentAmount, deadline: goal.deadline },
+                      ctx
+                    );
+                    return tips.length > 0 ? (
+                      <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Lightbulb className="w-3.5 h-3.5 text-emerald-400" />
+                          <p className="text-xs font-semibold text-emerald-400">Como atingir mais rápido</p>
+                        </div>
+                        <ul className="space-y-1.5">
+                          {tips.map((t, idx) => {
+                            const Icon = t.kind === "pace" ? CalendarClock : t.kind === "cut" ? Scissors : t.kind === "compare" ? TrendingUp : Lightbulb;
+                            return (
+                              <li key={idx} className="flex items-start gap-2">
+                                <Icon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                                <span className="text-xs text-muted-foreground leading-snug">{t.text}</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ) : null;
+                  })()}
 
                   {!isCompleted && (
                     <AddValueDialog goalId={goal.id} goalTitle={goal.title} onDone={load} />

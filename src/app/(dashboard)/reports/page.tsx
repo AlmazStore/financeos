@@ -7,7 +7,7 @@ import {
   Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Legend,
 } from "recharts";
-import { BarChart3, Loader2 } from "lucide-react";
+import { BarChart3, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
@@ -43,17 +43,24 @@ type ReportData = {
 export default function ReportsPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ref, setRef] = useState(() => { const d = new Date(); return { month: d.getMonth() + 1, year: d.getFullYear() }; });
 
   const load = useCallback(() => {
-    fetch("/api/reports")
+    fetch(`/api/reports?month=${ref.month}&year=${ref.year}`)
       .then((r) => r.json())
       .then((d) => setData(d))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [ref]);
 
   useEffect(() => { load(); }, [load]);
   useAutoRefresh(load);
+
+  const isCurrentMonth = (() => { const d = new Date(); return ref.month === d.getMonth() + 1 && ref.year === d.getFullYear(); })();
+  const shiftMonth = (delta: number) => setRef((r) => {
+    const d = new Date(r.year, r.month - 1 + delta, 1);
+    return { month: d.getMonth() + 1, year: d.getFullYear() };
+  });
 
   if (loading) {
     return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="w-7 h-7 animate-spin text-muted-foreground" /></div>;
@@ -71,6 +78,11 @@ export default function ReportsPage() {
         <div>
           <h2 className="text-xl font-bold">Relatórios</h2>
           <p className="text-sm text-muted-foreground">Análise completa do seu financeiro</p>
+        </div>
+        <div className="flex items-center gap-2 bg-card border border-border rounded-lg p-1">
+          <button onClick={() => shiftMonth(-1)} className="p-1.5 rounded-md hover:bg-accent"><ChevronLeft className="w-4 h-4" /></button>
+          <span className="text-sm font-medium capitalize min-w-[130px] text-center">{data?.monthLabel ?? "—"}</span>
+          <button onClick={() => shiftMonth(1)} disabled={isCurrentMonth} className="p-1.5 rounded-md hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed"><ChevronRight className="w-4 h-4" /></button>
         </div>
       </div>
 

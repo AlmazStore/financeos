@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import {
   ArrowDownLeft, ArrowUpRight, Check, Plus, Search,
   Trash2, TrendingDown, TrendingUp, Receipt, Loader2, Upload, Pencil, Copy,
-  SlidersHorizontal, X,
+  SlidersHorizontal, X, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -242,6 +242,26 @@ export default function TransactionsPage() {
 
   const allFilteredSelected = filtered.length > 0 && filtered.every((t) => selected.has(t.id));
 
+  const exportCSV = () => {
+    if (filtered.length === 0) { toast("Nada para exportar.", "error"); return; }
+    const head = ["Data", "Descrição", "Categoria", "Tipo", "Status", "Valor"];
+    const rows = filtered.map((t) => [
+      new Date(t.date).toLocaleDateString("pt-BR"),
+      `"${t.title.replace(/"/g, '""')}"`,
+      t.category?.name ?? "Sem categoria",
+      t.type === "INCOME" ? "Entrada" : t.type === "EXPENSE" ? "Saída" : "Transferência",
+      t.status === "COMPLETED" ? "Concluído" : t.status === "PENDING" ? "Pendente" : "Cancelado",
+      t.amount.toFixed(2).replace(".", ","),
+    ].join(";"));
+    const csv = "﻿" + [head.join(";"), ...rows].join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `transacoes-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const totalIncome = transactions
     .filter((t) => t.type === "INCOME" && t.status === "COMPLETED")
     .reduce((a, b) => a + b.amount, 0);
@@ -261,10 +281,16 @@ export default function TransactionsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {transactions.length > 0 && (
-            <Button variant="outline" size="sm" onClick={() => setDedupOpen(true)}>
-              <Copy className="w-4 h-4" />
-              Remover duplicadas
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={exportCSV}>
+                <Download className="w-4 h-4" />
+                Exportar CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setDedupOpen(true)}>
+                <Copy className="w-4 h-4" />
+                Remover duplicadas
+              </Button>
+            </>
           )}
           <Button variant="outline" size="sm" asChild>
             <Link href="/transactions/import">

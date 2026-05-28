@@ -3,19 +3,22 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { startOfMonth, endOfMonth, subMonths } from "date-fns";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const userId = session.user.id;
-  const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
+  const { searchParams } = new URL(req.url);
+  const qMonth = searchParams.get("month");
+  const qYear = searchParams.get("year");
+  const ref = qMonth && qYear ? new Date(parseInt(qYear), parseInt(qMonth) - 1, 1) : new Date();
+  const monthStart = startOfMonth(ref);
+  const monthEnd = endOfMonth(ref);
 
-  // Monthly data (last 7 months)
+  // Monthly data (7 months ending at the reference month)
   const monthlyData = await Promise.all(
     Array.from({ length: 7 }, (_, i) => {
-      const d = subMonths(now, 6 - i);
+      const d = subMonths(ref, 6 - i);
       return db.transaction.groupBy({
         by: ["type"],
         where: { userId, status: "COMPLETED", date: { gte: startOfMonth(d), lte: endOfMonth(d) } },
@@ -67,6 +70,6 @@ export async function GET() {
     categoryData,
     dre,
     summary: { income, expenses, savings: income - expenses },
-    monthLabel: new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(now),
+    monthLabel: new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(ref),
   });
 }

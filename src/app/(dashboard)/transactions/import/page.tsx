@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, UploadCloud, FileText, Loader2, CheckCircle2,
-  TrendingUp, TrendingDown, AlertCircle, Trash2, Sparkles, RefreshCw,
+  TrendingUp, TrendingDown, AlertCircle, Trash2, Sparkles, RefreshCw, Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -371,14 +371,21 @@ export default function ImportPage() {
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => { setStep("upload"); setRows([]); }}>
-              Escolher outro arquivo
-            </Button>
-            <Button variant="premium" className="flex-1" onClick={confirmImport} disabled={saving || included.length === 0}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Importar {included.length} {included.length === 1 ? "transação" : "transações"}</>}
-            </Button>
+          {/* Actions (sticky so the Save button is always reachable) */}
+          <div className="sticky bottom-0 -mx-4 sm:mx-0 px-4 sm:px-0 py-3 bg-background/90 backdrop-blur-sm border-t border-border sm:border-0 sm:bg-transparent space-y-2">
+            {included.length === 0 && rows.length > 0 && (
+              <p className="text-xs text-center text-emerald-400">
+                ✓ Todas as transações deste arquivo já foram salvas anteriormente. Nada novo para importar.
+              </p>
+            )}
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => { setStep("upload"); setRows([]); }}>
+                Escolher outro arquivo
+              </Button>
+              <Button variant="premium" className="flex-1" onClick={confirmImport} disabled={saving || included.length === 0}>
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" />Salvar {included.length} {included.length === 1 ? "transação" : "transações"}</>}
+              </Button>
+            </div>
           </div>
         </motion.div>
       )}

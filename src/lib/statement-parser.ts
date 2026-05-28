@@ -17,6 +17,17 @@ export function transactionHash(tx: {
   date: string; amount: number; type: string; description: string; fitid?: string;
 }): string {
   if (tx.fitid && tx.fitid.trim()) return `fit:${tx.fitid.trim()}`;
+  return fallbackHash(tx);
+}
+
+/**
+ * Field-based fingerprint (ignores FITID). Used to detect duplicates against
+ * transactions that were created before importHash existed, or that came from
+ * a different source/format.
+ */
+export function fallbackHash(tx: {
+  date: string; amount: number; type: string; description: string;
+}): string {
   const norm = tx.description.toLowerCase().replace(/\s+/g, " ").trim().slice(0, 40);
   return `h:${tx.date}|${tx.amount.toFixed(2)}|${tx.type}|${norm}`;
 }

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { getExistingFingerprints } from "@/lib/dedup";
+import { fallbackHash } from "@/lib/statement-parser";
 
 const txSchema = z.object({
   title: z.string().min(1).max(150),
@@ -28,23 +30,20 @@ export async function POST(req: Request) {
     const userCats = await db.category.findMany({ where: { userId }, select: { id: true } });
     const validCatIds = new Set(userCats.map((c) => c.id));
 
-    // Server-side dedup: drop any transactions whose importHash already exists
-    const incomingHashes = transactions.map((t) => t.importHash).filter(Boolean) as string[];
-    let existing = new Set<string>();
-    if (incomingHashes.length) {
-      const found = await db.transaction.findMany({
-        where: { userId, importHash: { in: incomingHashes } },
-        select: { importHash: true },
-      });
-      existing = new Set(found.map((f) => f.importHash).filter(Boolean) as string[]);
-    }
+    // Server-side dedup against all existing transactions (stored hash + computed fingerprint)
+    const existing = await getExistingFingerprints(userId);
 
     // Also dedup within the same payload
     const seen = new Set<string>();
     const toCreate = transactions.filter((t) => {
-      if (!t.importHash) return true;
-      if (existing.has(t.importHash) || seen.has(t.importHash)) return false;
-      seen.add(t.importHash);
+      const primary = t.importHash ?? null;
+      const fb = fallbackHash({ date: t.date, amount: t.amount, type: t.type, description: t.title });
+      const isDup =
+        (primary && (existing.has(primary) || seen.has(primary))) ||
+        existing.has(fb) || seen.has(fb);
+      if (isDup) return false;
+      if (primary) seen.add(primary);
+      seen.add(fb);
       return true;
     });
 

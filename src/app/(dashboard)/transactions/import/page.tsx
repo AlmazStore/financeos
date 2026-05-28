@@ -10,11 +10,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
-import { parseStatement, guessCategoryId, transactionHash, type ParsedTx } from "@/lib/statement-parser";
+import { parseStatement, guessCategoryId, transactionHash, fallbackHash, type ParsedTx } from "@/lib/statement-parser";
 
 type Category = { id: string; name: string; icon: string | null; type: string };
 
-type Row = ParsedTx & { id: number; categoryId: string | null; include: boolean; hash: string; already: boolean };
+type Row = ParsedTx & { id: number; categoryId: string | null; include: boolean; hash: string; fallback: string; already: boolean };
 
 export default function ImportPage() {
   const router = useRouter();
@@ -49,23 +49,27 @@ export default function ImportPage() {
         ...tx,
         id: i,
         hash: transactionHash(tx),
+        fallback: fallbackHash(tx),
         categoryId: guessCategoryId(tx.description, tx.type, categories),
       }));
 
-      // Check which transactions were already imported (daily update / dedup)
+      // Check which transactions were already imported (daily update / dedup).
+      // Send both the primary hash and the field-based fallback so we also
+      // catch transactions imported before importHash existed.
       let existing = new Set<string>();
       try {
+        const allHashes = [...new Set(withHash.flatMap((r) => [r.hash, r.fallback]))];
         const res = await fetch("/api/transactions/import/check", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ hashes: withHash.map((r) => r.hash) }),
+          body: JSON.stringify({ hashes: allHashes }),
         });
         const data = await res.json();
         existing = new Set<string>(data.existing ?? []);
       } catch {}
 
       const newRows: Row[] = withHash.map((r) => {
-        const already = existing.has(r.hash);
+        const already = existing.has(r.hash) || existing.has(r.fallback);
         return { ...r, already, include: !already };
       });
 

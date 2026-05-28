@@ -47,13 +47,27 @@ export default function TransactionsPage() {
   const [savingCat, setSavingCat] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     setLoading(true);
-    fetch("/api/transactions?limit=200")
-      .then((r) => r.json())
-      .then((d) => setTransactions(d.transactions ?? []))
-      .catch(() => toast("Erro ao carregar transações.", "error"))
-      .finally(() => setLoading(false));
+    try {
+      const pageSize = 500;
+      let offset = 0;
+      let all: Transaction[] = [];
+      // Fetch in chunks until we've loaded everything (no practical cap)
+      for (;;) {
+        const res = await fetch(`/api/transactions?limit=${pageSize}&offset=${offset}`);
+        const d = await res.json();
+        const batch: Transaction[] = d.transactions ?? [];
+        all = all.concat(batch);
+        offset += pageSize;
+        if (batch.length < pageSize || offset >= (d.total ?? all.length)) break;
+      }
+      setTransactions(all);
+    } catch {
+      toast("Erro ao carregar transações.", "error");
+    } finally {
+      setLoading(false);
+    }
   }, [toast]);
 
   useEffect(() => { load(); }, [load]);

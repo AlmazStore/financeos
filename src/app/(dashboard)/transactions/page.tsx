@@ -21,6 +21,8 @@ const TYPE_FILTERS = ["Todas", "Entradas", "Saídas", "Pendentes"];
 
 type Category = { id: string; name: string; icon: string | null; color: string | null; type: string };
 
+type CatEditor = { ids: string[]; types: string[]; label: string; current: string | null };
+
 type Transaction = {
   id: string;
   title: string;
@@ -40,8 +42,10 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [editTx, setEditTx] = useState<Transaction | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [catEditor, setCatEditor] = useState<CatEditor | null>(null);
   const [savingCat, setSavingCat] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -57,24 +61,84 @@ export default function TransactionsPage() {
     fetch("/api/categories").then((r) => r.json()).then((d) => setCategories(d.categories ?? [])).catch(() => {});
   }, []);
 
-  const changeCategory = async (categoryId: string | null) => {
-    if (!editTx) return;
+  const toggleSelect = (id: string) =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+
+  const openSingleEditor = (t: Transaction) =>
+    setCatEditor({ ids: [t.id], types: [t.type], label: t.title, current: t.categoryId });
+
+  const openBulkEditor = () => {
+    const sel = transactions.filter((t) => selected.has(t.id));
+    if (!sel.length) return;
+    setCatEditor({
+      ids: sel.map((t) => t.id),
+      types: [...new Set(sel.map((t) => t.type))],
+      label: `${sel.length} transações selecionadas`,
+      current: null,
+    });
+  };
+
+  const applyCategory = async (categoryId: string | null) => {
+    if (!catEditor) return;
     setSavingCat(true);
     try {
-      const res = await fetch(`/api/transactions/${editTx.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categoryId }),
-      });
-      if (!res.ok) throw new Error();
-      const updated = await res.json();
-      setTransactions((prev) => prev.map((t) => (t.id === updated.id ? { ...t, categoryId: updated.categoryId, category: updated.category } : t)));
+      if (catEditor.ids.length === 1) {
+        const res = await fetch(`/api/transactions/${catEditor.ids[0]}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ categoryId }),
+        });
+        if (!res.ok) throw new Error();
+        const updated = await res.json();
+        setTransactions((prev) => prev.map((t) => (t.id === updated.id ? { ...t, categoryId: updated.categoryId, category: updated.category } : t)));
+      } else {
+        const res = await fetch("/api/transactions/bulk", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: catEditor.ids, categoryId }),
+        });
+        if (!res.ok) throw new Error();
+        const cat = categories.find((c) => c.id === categoryId);
+        const idset = new Set(catEditor.ids);
+        setTransactions((prev) => prev.map((t) =>
+          idset.has(t.id)
+            ? { ...t, categoryId, category: cat ? { name: cat.name, color: cat.color, icon: cat.icon } : null }
+            : t
+        ));
+        setSelected(new Set());
+      }
       toast("Categoria atualizada!", "success");
-      setEditTx(null);
+      setCatEditor(null);
     } catch {
       toast("Erro ao atualizar categoria.", "error");
     } finally {
       setSavingCat(false);
+    }
+  };
+
+  const bulkDelete = async () => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    setBulkDeleting(true);
+    try {
+      const res = await fetch("/api/transactions/bulk", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) throw new Error();
+      const idset = new Set(ids);
+      setTransactions((prev) => prev.filter((t) => !idset.has(t.id)));
+      setSelected(new Set());
+      toast(`${ids.length} transações excluídas.`, "success");
+    } catch {
+      toast("Erro ao excluir.", "error");
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -101,6 +165,8 @@ export default function TransactionsPage() {
       (typeFilter === "Pendentes" && t.status === "PENDING");
     return matchSearch && matchType;
   });
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every((t) => selected.has(t.id));
 
   const totalIncome = transactions
     .filter((t) => t.type === "INCOME" && t.status === "COMPLETED")
@@ -197,6 +263,27 @@ export default function TransactionsPage() {
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl border border-primary/30 bg-primary/5 sticky top-2 z-30"
+        >
+          <span className="text-sm font-medium">{selected.size} selecionada{selected.size > 1 ? "s" : ""}</span>
+          <div className="flex-1" />
+          <Button variant="premium" size="sm" onClick={openBulkEditor}>
+            <Pencil className="w-3.5 h-3.5" />
+            Definir categoria
+          </Button>
+          <Button variant="outline" size="sm" onClick={bulkDelete} disabled={bulkDeleting} className="text-red-400 hover:text-red-400">
+            {bulkDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            Excluir
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Cancelar</Button>
+        </motion.div>
+      )}
+
       {/* Transaction list */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         {loading ? (
@@ -231,7 +318,15 @@ export default function TransactionsPage() {
           </div>
         ) : (
           <>
-            <div className="hidden md:grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-5 py-3 border-b border-border bg-muted/30 text-xs font-medium text-muted-foreground">
+            <div className="hidden md:grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-5 py-3 border-b border-border bg-muted/30 text-xs font-medium text-muted-foreground items-center">
+              <button onClick={() => setSelected(allFilteredSelected ? new Set() : new Set(filtered.map((t) => t.id)))} className="flex-shrink-0">
+                <div className={cn(
+                  "w-4 h-4 rounded border-2 flex items-center justify-center transition-colors",
+                  allFilteredSelected ? "border-emerald-400 bg-emerald-400" : "border-muted-foreground/40"
+                )}>
+                  {allFilteredSelected && <Check className="w-3 h-3 text-black" />}
+                </div>
+              </button>
               <span>Transação</span>
               <span>Categoria</span>
               <span>Data</span>
@@ -243,11 +338,23 @@ export default function TransactionsPage() {
               {filtered.map((t, i) => (
                 <motion.div
                   key={t.id}
-                  className="flex md:grid md:grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-5 py-4 items-center hover:bg-muted/20 transition-colors group"
+                  className={cn(
+                    "flex md:grid md:grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-5 py-4 items-center transition-colors group",
+                    selected.has(t.id) ? "bg-primary/5" : "hover:bg-muted/20"
+                  )}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: Math.min(i * 0.02, 0.3) }}
                 >
+                  <button onClick={() => toggleSelect(t.id)} className="flex-shrink-0 order-first">
+                    <div className={cn(
+                      "w-4 h-4 rounded border-2 flex items-center justify-center transition-colors",
+                      selected.has(t.id) ? "border-emerald-400 bg-emerald-400" : "border-muted-foreground/40 hover:border-muted-foreground"
+                    )}>
+                      {selected.has(t.id) && <Check className="w-3 h-3 text-black" />}
+                    </div>
+                  </button>
+
                   <div className="flex items-center gap-3 min-w-0">
                     <div
                       className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
@@ -301,7 +408,7 @@ export default function TransactionsPage() {
                       }
                     </div>
                     <button
-                      onClick={() => setEditTx(t)}
+                      onClick={() => openSingleEditor(t)}
                       title="Editar categoria"
                       className="md:opacity-0 md:group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground"
                     >
@@ -325,23 +432,27 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      {/* Edit category dialog */}
-      <Dialog open={!!editTx} onOpenChange={(o) => !o && setEditTx(null)}>
+      {/* Category editor dialog (single + bulk) */}
+      <Dialog open={!!catEditor} onOpenChange={(o) => !o && setCatEditor(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar categoria</DialogTitle>
+            <DialogTitle>{catEditor && catEditor.ids.length > 1 ? "Categoria em massa" : "Editar categoria"}</DialogTitle>
             <DialogDescription>
-              {editTx?.title} · {editTx ? formatCurrency(editTx.amount) : ""}
+              {catEditor?.label}
+              {catEditor && catEditor.ids.length > 1 ? " — a categoria será aplicada a todas." : ""}
             </DialogDescription>
           </DialogHeader>
 
           <div className="py-2">
             {(() => {
-              const opts = categories.filter((c) => !editTx || c.type === editTx.type || c.type === "BOTH");
+              const multiType = !catEditor || catEditor.types.length > 1;
+              const opts = categories.filter((c) =>
+                multiType ? true : (c.type === catEditor!.types[0] || c.type === "BOTH")
+              );
               if (opts.length === 0) {
                 return (
                   <div className="text-center py-6">
-                    <p className="text-sm text-muted-foreground mb-3">Nenhuma categoria disponível para este tipo.</p>
+                    <p className="text-sm text-muted-foreground mb-3">Nenhuma categoria disponível.</p>
                     <Button variant="outline" size="sm" asChild>
                       <Link href="/categories">Criar categoria</Link>
                     </Button>
@@ -354,10 +465,10 @@ export default function TransactionsPage() {
                   <button
                     type="button"
                     disabled={savingCat}
-                    onClick={() => changeCategory(null)}
+                    onClick={() => applyCategory(null)}
                     className={cn(
                       "flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all",
-                      editTx?.categoryId == null ? "border-primary bg-primary/5" : "border-transparent bg-muted/30 hover:border-border"
+                      catEditor?.current == null ? "border-primary bg-primary/5" : "border-transparent bg-muted/30 hover:border-border"
                     )}
                   >
                     <span className="text-xl">🚫</span>
@@ -369,10 +480,10 @@ export default function TransactionsPage() {
                       key={c.id}
                       type="button"
                       disabled={savingCat}
-                      onClick={() => changeCategory(c.id)}
+                      onClick={() => applyCategory(c.id)}
                       className={cn(
                         "flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all",
-                        editTx?.categoryId === c.id ? "border-primary bg-primary/5" : "border-transparent bg-muted/30 hover:border-border"
+                        catEditor?.current === c.id ? "border-primary bg-primary/5" : "border-transparent bg-muted/30 hover:border-border"
                       )}
                     >
                       <span className="text-xl">{c.icon ?? "📦"}</span>

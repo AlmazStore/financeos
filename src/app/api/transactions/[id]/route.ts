@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { normalizeMerchant } from "@/lib/category-rules";
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -55,6 +56,22 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     data,
     include: { category: true },
   });
+
+  // Learn from the user's category choice for future imports
+  if (body.categoryId !== undefined) {
+    const pattern = normalizeMerchant(updated.title);
+    if (pattern.length >= 3) {
+      if (data.categoryId) {
+        await db.categoryRule.upsert({
+          where: { userId_pattern: { userId: session.user.id, pattern } },
+          create: { userId: session.user.id, pattern, categoryId: data.categoryId as string },
+          update: { categoryId: data.categoryId as string },
+        }).catch(() => {});
+      } else {
+        await db.categoryRule.deleteMany({ where: { userId: session.user.id, pattern } }).catch(() => {});
+      }
+    }
+  }
 
   return NextResponse.json(updated);
 }

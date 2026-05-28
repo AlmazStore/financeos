@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { normalizeMerchant } from "@/lib/category-rules";
 
 const patchSchema = z.object({
   ids: z.array(z.string()).min(1).max(500),
@@ -33,6 +34,19 @@ export async function PATCH(req: Request) {
       where: { id: { in: ids }, userId },
       data: { categoryId: finalCategoryId },
     });
+
+    // Learn merchant→category from this bulk action
+    if (finalCategoryId) {
+      const txs = await db.transaction.findMany({ where: { id: { in: ids }, userId }, select: { title: true } });
+      const patterns = [...new Set(txs.map((t) => normalizeMerchant(t.title)).filter((p) => p.length >= 3))];
+      for (const pattern of patterns) {
+        await db.categoryRule.upsert({
+          where: { userId_pattern: { userId, pattern } },
+          create: { userId, pattern, categoryId: finalCategoryId },
+          update: { categoryId: finalCategoryId },
+        }).catch(() => {});
+      }
+    }
 
     return NextResponse.json({ updated: result.count });
   } catch (err) {

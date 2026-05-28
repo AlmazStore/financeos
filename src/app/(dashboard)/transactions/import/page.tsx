@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { parseStatement, guessCategoryId, transactionHash, fallbackHash, isCancelledDescription, type ParsedTx } from "@/lib/statement-parser";
+import { normalizeMerchant } from "@/lib/category-rules";
 import { notifyDataChanged } from "@/lib/events";
 
 type Category = { id: string; name: string; icon: string | null; type: string };
@@ -46,13 +47,28 @@ export default function ImportPage() {
         return;
       }
 
-      const withHash = parsed.map((tx, i) => ({
-        ...tx,
-        id: i,
-        hash: transactionHash(tx),
-        fallback: fallbackHash(tx),
-        categoryId: guessCategoryId(tx.description, tx.type, categories),
-      }));
+      // Learned merchant→category rules (from past edits) take priority over keywords
+      const learned: Record<string, string> = {};
+      try {
+        const res = await fetch("/api/category-rules");
+        const d = await res.json();
+        for (const r of d.rules ?? []) learned[r.pattern] = r.categoryId;
+      } catch {}
+      const validCatIds = new Set(categories.map((c) => c.id));
+
+      const withHash = parsed.map((tx, i) => {
+        const learnedId = learned[normalizeMerchant(tx.description)];
+        const categoryId = (learnedId && validCatIds.has(learnedId))
+          ? learnedId
+          : guessCategoryId(tx.description, tx.type, categories);
+        return {
+          ...tx,
+          id: i,
+          hash: transactionHash(tx),
+          fallback: fallbackHash(tx),
+          categoryId,
+        };
+      });
 
       // Check which transactions were already imported (daily update / dedup).
       // Send both the primary hash and the field-based fallback so we also

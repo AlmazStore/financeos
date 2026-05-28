@@ -13,6 +13,7 @@
     "db:generate": "prisma generate"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.0",
     "@auth/prisma-adapter": "^2.7.2",
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "^2.2.0",

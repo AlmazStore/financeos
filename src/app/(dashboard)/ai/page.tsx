@@ -62,7 +62,9 @@ export default function AIPage() {
     const msg = text || message;
     if (!msg.trim()) return;
 
-    setChat((prev) => [...prev, { role: "user", content: msg }]);
+    // Build the conversation to send (history + the new user message)
+    const outgoing = [...chat, { role: "user" as const, content: msg }];
+    setChat(outgoing);
     setMessage("");
     setLoading(true);
 
@@ -70,7 +72,7 @@ export default function AIPage() {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg }),
+        body: JSON.stringify({ message: msg, messages: outgoing }),
       });
       const data = await res.json();
       setChat((prev) => [...prev, { role: "ai", content: data.answer ?? "Não consegui responder agora." }]);

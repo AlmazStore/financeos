@@ -215,18 +215,18 @@ export default function ImportPage() {
       {step === "preview" && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
           {/* Summary */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="rounded-xl border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">Selecionadas</p>
-              <p className="text-xl font-bold">{included.length}<span className="text-sm text-muted-foreground font-normal"> / {rows.length}</span></p>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="rounded-xl border border-border bg-card p-3 sm:p-4 min-w-0">
+              <p className="text-[11px] sm:text-xs text-muted-foreground mb-1 truncate">Selecionadas</p>
+              <p className="text-base sm:text-xl font-bold truncate">{included.length}<span className="text-sm text-muted-foreground font-normal"> / {rows.length}</span></p>
             </div>
-            <div className="rounded-xl border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">Entradas</p>
-              <p className="text-xl font-bold text-emerald-400">{formatCurrency(totalIncome)}</p>
+            <div className="rounded-xl border border-border bg-card p-3 sm:p-4 min-w-0">
+              <p className="text-[11px] sm:text-xs text-muted-foreground mb-1 truncate">Entradas</p>
+              <p className="text-sm sm:text-xl font-bold text-emerald-400 truncate">{formatCurrency(totalIncome)}</p>
             </div>
-            <div className="rounded-xl border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">Saídas</p>
-              <p className="text-xl font-bold text-red-400">{formatCurrency(totalExpense)}</p>
+            <div className="rounded-xl border border-border bg-card p-3 sm:p-4 min-w-0">
+              <p className="text-[11px] sm:text-xs text-muted-foreground mb-1 truncate">Saídas</p>
+              <p className="text-sm sm:text-xl font-bold text-red-400 truncate">{formatCurrency(totalExpense)}</p>
             </div>
           </div>
 
@@ -252,11 +252,12 @@ export default function ImportPage() {
                   <div
                     key={row.id}
                     className={cn(
-                      "grid grid-cols-2 md:grid-cols-[auto_auto_1fr_auto_auto_auto] gap-3 px-4 py-3 items-center text-sm transition-opacity",
+                      "px-4 py-3 text-sm transition-opacity md:grid md:grid-cols-[auto_auto_1fr_auto_auto_auto] md:gap-3 md:items-center",
                       !row.include && "opacity-40"
                     )}
                   >
-                    <button onClick={() => updateRow(row.id, { include: !row.include })} className="flex-shrink-0">
+                    {/* Checkbox */}
+                    <button onClick={() => updateRow(row.id, { include: !row.include })} className="hidden md:flex flex-shrink-0">
                       <div className={cn(
                         "w-5 h-5 rounded-md border-2 flex items-center justify-center",
                         row.include ? "border-emerald-400 bg-emerald-400" : "border-border"
@@ -265,50 +266,88 @@ export default function ImportPage() {
                       </div>
                     </button>
 
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(new Date(row.date))}</span>
+                    {/* Date (desktop cell) */}
+                    <span className="hidden md:inline text-xs text-muted-foreground whitespace-nowrap">{formatDate(new Date(row.date))}</span>
 
-                    <span className="truncate font-medium flex items-center gap-1.5" title={row.description}>
+                    {/* Description (desktop cell) */}
+                    <span className="hidden md:flex truncate font-medium items-center gap-1.5" title={row.description}>
                       {row.description}
-                      {row.cancelled && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 whitespace-nowrap flex-shrink-0">cancelado</span>
-                      )}
-                      {row.already && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground whitespace-nowrap flex-shrink-0">já importada</span>
-                      )}
+                      {row.cancelled && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 whitespace-nowrap flex-shrink-0">cancelado</span>}
+                      {row.already && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground whitespace-nowrap flex-shrink-0">já importada</span>}
                     </span>
 
+                    {/* Category select (desktop cell) */}
                     <select
                       value={row.categoryId ?? ""}
                       onChange={(e) => updateRow(row.id, { categoryId: e.target.value || null })}
-                      className="text-xs bg-muted/50 border border-border rounded-lg px-2 py-1.5 outline-none focus:border-primary max-w-[140px]"
+                      className="hidden md:block text-xs bg-muted/50 border border-border rounded-lg px-2 py-1.5 outline-none focus:border-primary max-w-[140px]"
                     >
                       <option value="">Sem categoria</option>
-                      {cats.map((c) => (
-                        <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-                      ))}
+                      {cats.map((c) => (<option key={c.id} value={c.id}>{c.icon} {c.name}</option>))}
                     </select>
 
+                    {/* Type toggle (desktop cell) */}
                     <button
-                      onClick={() => updateRow(row.id, {
-                        type: row.type === "INCOME" ? "EXPENSE" : "INCOME",
-                        categoryId: null,
-                      })}
-                      className={cn(
-                        "flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium",
-                        row.type === "INCOME" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-                      )}
+                      onClick={() => updateRow(row.id, { type: row.type === "INCOME" ? "EXPENSE" : "INCOME", categoryId: null })}
+                      className={cn("hidden md:flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium",
+                        row.type === "INCOME" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}
                     >
                       {row.type === "INCOME" ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                       {row.type === "INCOME" ? "Entrada" : "Saída"}
                     </button>
 
-                    <div className="flex items-center justify-end gap-2">
+                    {/* Amount + delete (desktop cell) */}
+                    <div className="hidden md:flex items-center justify-end gap-2">
                       <span className={cn("font-semibold whitespace-nowrap", row.type === "INCOME" ? "text-emerald-400" : "text-foreground")}>
                         {row.type === "INCOME" ? "+" : "-"}{formatCurrency(row.amount)}
                       </span>
                       <button onClick={() => setRows((prev) => prev.filter((r) => r.id !== row.id))} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
+                    </div>
+
+                    {/* ---- Mobile card ---- */}
+                    <div className="md:hidden flex flex-col gap-2">
+                      <div className="flex items-start gap-2.5">
+                        <button onClick={() => updateRow(row.id, { include: !row.include })} className="flex-shrink-0 mt-0.5">
+                          <div className={cn("w-5 h-5 rounded-md border-2 flex items-center justify-center",
+                            row.include ? "border-emerald-400 bg-emerald-400" : "border-border")}>
+                            {row.include && <CheckCircle2 className="w-3.5 h-3.5 text-black" />}
+                          </div>
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{row.description}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <span className="text-xs text-muted-foreground">{formatDate(new Date(row.date))}</span>
+                            {row.cancelled && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">cancelado</span>}
+                            {row.already && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">já importada</span>}
+                          </div>
+                        </div>
+                        <span className={cn("font-semibold whitespace-nowrap", row.type === "INCOME" ? "text-emerald-400" : "text-foreground")}>
+                          {row.type === "INCOME" ? "+" : "-"}{formatCurrency(row.amount)}
+                        </span>
+                        <button onClick={() => setRows((prev) => prev.filter((r) => r.id !== row.id))} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400 flex-shrink-0">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 pl-7">
+                        <button
+                          onClick={() => updateRow(row.id, { type: row.type === "INCOME" ? "EXPENSE" : "INCOME", categoryId: null })}
+                          className={cn("flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium flex-shrink-0",
+                            row.type === "INCOME" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}
+                        >
+                          {row.type === "INCOME" ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                          {row.type === "INCOME" ? "Entrada" : "Saída"}
+                        </button>
+                        <select
+                          value={row.categoryId ?? ""}
+                          onChange={(e) => updateRow(row.id, { categoryId: e.target.value || null })}
+                          className="flex-1 min-w-0 text-xs bg-muted/50 border border-border rounded-lg px-2 py-1.5 outline-none focus:border-primary"
+                        >
+                          <option value="">Sem categoria</option>
+                          {cats.map((c) => (<option key={c.id} value={c.id}>{c.icon} {c.name}</option>))}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 );

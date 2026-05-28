@@ -147,7 +147,7 @@ export default function NewTransactionPage() {
                 value={amount}
                 onChange={handleAmountChange}
                 className={cn(
-                  "flex-1 text-5xl font-bold bg-transparent outline-none border-0 placeholder:text-muted-foreground/30 w-full",
+                  "flex-1 text-3xl sm:text-5xl font-bold bg-transparent outline-none border-0 placeholder:text-muted-foreground/30 w-full min-w-0",
                   type === "INCOME" ? "text-emerald-400" : "text-foreground"
                 )}
               />

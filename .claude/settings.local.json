@@ -50,7 +50,8 @@
       "Bash(curl -s -o /dev/null -w 'ai/insights\\(noauth\\):%{http_code}\\\\n' https://financeos-app-chi.vercel.app/api/ai/insights)",
       "Bash(curl -s -o /dev/null -w 'companies\\(noauth\\):%{http_code}\\\\n' https://financeos-app-chi.vercel.app/api/companies)",
       "Bash(curl -s -o /dev/null -w 'cashflow\\(noauth\\):%{http_code}\\\\n' https://financeos-app-chi.vercel.app/api/cashflow)",
-      "Bash(curl -s -o /dev/null -w 'reports\\(noauth\\):%{http_code}\\\\n' https://financeos-app-chi.vercel.app/api/reports)"
+      "Bash(curl -s -o /dev/null -w 'reports\\(noauth\\):%{http_code}\\\\n' https://financeos-app-chi.vercel.app/api/reports)",
+      "Bash(cd \"/c/Users/Walison/Desktop/aplicativo em site\" && tail -20 src/app/globals.css)"
     ]
   }
 }

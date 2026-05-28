@@ -99,6 +99,13 @@
 }
 
 @layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
   .gradient-text {
     @apply bg-gradient-to-r from-emerald-400 to-violet-400 bg-clip-text text-transparent;
   }

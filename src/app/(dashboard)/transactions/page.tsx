@@ -282,33 +282,33 @@ export default function TransactionsPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-xl border border-border bg-card p-4">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
               <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
             </div>
-            <span className="text-xs text-muted-foreground">Entradas</span>
+            <span className="text-[11px] sm:text-xs text-muted-foreground truncate">Entradas</span>
           </div>
-          <p className="text-xl font-bold text-emerald-400">{formatCurrency(totalIncome)}</p>
+          <p className="text-sm sm:text-xl font-bold text-emerald-400 truncate">{formatCurrency(totalIncome)}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-lg bg-red-500/10 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0">
               <TrendingDown className="w-3.5 h-3.5 text-red-400" />
             </div>
-            <span className="text-xs text-muted-foreground">Saídas</span>
+            <span className="text-[11px] sm:text-xs text-muted-foreground truncate">Saídas</span>
           </div>
-          <p className="text-xl font-bold text-red-400">{formatCurrency(totalExpenses)}</p>
+          <p className="text-sm sm:text-xl font-bold text-red-400 truncate">{formatCurrency(totalExpenses)}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
               <ArrowUpRight className="w-3.5 h-3.5 text-violet-400" />
             </div>
-            <span className="text-xs text-muted-foreground">Saldo</span>
+            <span className="text-[11px] sm:text-xs text-muted-foreground truncate">Saldo</span>
           </div>
-          <p className="text-xl font-bold text-violet-400">{formatCurrency(totalIncome - totalExpenses)}</p>
+          <p className="text-sm sm:text-xl font-bold text-violet-400 truncate">{formatCurrency(totalIncome - totalExpenses)}</p>
         </div>
       </div>
 

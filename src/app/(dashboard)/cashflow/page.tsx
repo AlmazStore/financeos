@@ -79,34 +79,34 @@ export default function CashflowPage() {
       ) : (
         <>
           {/* Summary */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 sm:p-5 min-w-0">
               <div className="flex items-center gap-2 mb-2">
-                <ArrowDownLeft className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs text-muted-foreground">A receber</span>
+                <ArrowDownLeft className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <span className="text-[11px] sm:text-xs text-muted-foreground truncate">A receber</span>
               </div>
-              <p className="text-2xl font-bold text-emerald-400">{formatCurrency(totals.receivable)}</p>
-              <p className="text-xs text-muted-foreground mt-1">{upcoming.filter((u) => u.type === "receivable").length} entradas previstas</p>
+              <p className="text-sm sm:text-2xl font-bold text-emerald-400 truncate">{formatCurrency(totals.receivable)}</p>
+              <p className="hidden sm:block text-xs text-muted-foreground mt-1">{upcoming.filter((u) => u.type === "receivable").length} entradas previstas</p>
             </div>
 
-            <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-5">
+            <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 sm:p-5 min-w-0">
               <div className="flex items-center gap-2 mb-2">
-                <ArrowUpRight className="w-4 h-4 text-red-400" />
-                <span className="text-xs text-muted-foreground">A pagar</span>
+                <ArrowUpRight className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <span className="text-[11px] sm:text-xs text-muted-foreground truncate">A pagar</span>
               </div>
-              <p className="text-2xl font-bold text-red-400">{formatCurrency(totals.payable)}</p>
-              <p className="text-xs text-muted-foreground mt-1">{upcoming.filter((u) => u.type === "payable").length} saídas previstas</p>
+              <p className="text-sm sm:text-2xl font-bold text-red-400 truncate">{formatCurrency(totals.payable)}</p>
+              <p className="hidden sm:block text-xs text-muted-foreground mt-1">{upcoming.filter((u) => u.type === "payable").length} saídas previstas</p>
             </div>
 
-            <div className={cn("rounded-xl border p-5", totals.balance >= 0 ? "border-violet-500/20 bg-violet-500/5" : "border-red-500/20 bg-red-500/5")}>
+            <div className={cn("rounded-xl border p-3 sm:p-5 min-w-0", totals.balance >= 0 ? "border-violet-500/20 bg-violet-500/5" : "border-red-500/20 bg-red-500/5")}>
               <div className="flex items-center gap-2 mb-2">
-                <Clock className="w-4 h-4 text-violet-400" />
-                <span className="text-xs text-muted-foreground">Saldo previsto</span>
+                <Clock className="w-4 h-4 text-violet-400 flex-shrink-0" />
+                <span className="text-[11px] sm:text-xs text-muted-foreground truncate">Saldo previsto</span>
               </div>
-              <p className={cn("text-2xl font-bold", totals.balance >= 0 ? "text-violet-400" : "text-red-400")}>
+              <p className={cn("text-sm sm:text-2xl font-bold truncate", totals.balance >= 0 ? "text-violet-400" : "text-red-400")}>
                 {formatCurrency(totals.balance)}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">Após todas as contas</p>
+              <p className="hidden sm:block text-xs text-muted-foreground mt-1">Após todas as contas</p>
             </div>
           </div>
 

@@ -82,27 +82,27 @@ export default function GoalsPage() {
       ) : (
         <>
           {/* Summary */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="rounded-xl border border-border bg-card p-5">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="rounded-xl border border-border bg-card p-3 sm:p-5 min-w-0">
               <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-3">
                 <Trophy className="w-4 h-4 text-emerald-400" />
               </div>
-              <p className="text-2xl font-bold">{completed.length}</p>
-              <p className="text-sm text-muted-foreground">Metas concluídas</p>
+              <p className="text-lg sm:text-2xl font-bold">{completed.length}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Metas concluídas</p>
             </div>
-            <div className="rounded-xl border border-border bg-card p-5">
+            <div className="rounded-xl border border-border bg-card p-3 sm:p-5 min-w-0">
               <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center mb-3">
                 <Target className="w-4 h-4 text-violet-400" />
               </div>
-              <p className="text-2xl font-bold">{inProgress.length}</p>
-              <p className="text-sm text-muted-foreground">Em andamento</p>
+              <p className="text-lg sm:text-2xl font-bold">{inProgress.length}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Em andamento</p>
             </div>
-            <div className="rounded-xl border border-border bg-card p-5">
+            <div className="rounded-xl border border-border bg-card p-3 sm:p-5 min-w-0">
               <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center mb-3">
                 <TrendingUp className="w-4 h-4 text-blue-400" />
               </div>
-              <p className="text-2xl font-bold">{formatCurrency(totalSaved)}</p>
-              <p className="text-sm text-muted-foreground">Total guardado</p>
+              <p className="text-base sm:text-2xl font-bold truncate">{formatCurrency(totalSaved)}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Total guardado</p>
             </div>
           </div>
 

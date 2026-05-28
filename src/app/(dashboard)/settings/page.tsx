@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
-import { Shield, Loader2, Check, Download, Trash2, Moon, Sun, Palette } from "lucide-react";
+import { Shield, Loader2, Check, Download, Trash2, Moon, Sun, Palette, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,6 +32,8 @@ export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const email = session?.user?.email ?? "";
 
@@ -75,6 +77,17 @@ export default function SettingsPage() {
       toast("Download iniciado.", "success");
     } catch { toast("Erro ao exportar.", "error"); }
     finally { setExporting(false); }
+  };
+
+  const resetAccount = async () => {
+    setResetting(true);
+    try {
+      const res = await fetch("/api/user/reset", { method: "POST" });
+      if (!res.ok) throw new Error();
+      toast("Conta zerada! Recomeçando do zero.", "success");
+      router.push("/onboarding");
+      router.refresh();
+    } catch { toast("Erro ao zerar a conta.", "error"); setResetting(false); }
   };
 
   const deleteAccount = async () => {
@@ -190,6 +203,15 @@ export default function SettingsPage() {
               </Button>
             </div>
 
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6">
+              <h3 className="font-semibold mb-2">Recomeçar do zero</h3>
+              <p className="text-sm text-muted-foreground mb-4">Apaga todas as suas transações, metas, orçamentos, recorrentes e empresas, recria as categorias padrão e refaz o onboarding — sem perder seu login. Ótimo para testar o app como um novo usuário.</p>
+              <Button variant="outline" size="sm" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 gap-2" onClick={() => setResetOpen(true)}>
+                <RotateCcw className="w-3.5 h-3.5" />
+                Zerar minha conta
+              </Button>
+            </div>
+
             <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6">
               <h3 className="font-semibold text-red-400 mb-2">Zona de perigo</h3>
               <p className="text-sm text-muted-foreground mb-4">Excluir sua conta remove permanentemente todas as suas transações, metas e dados. Esta ação é irreversível.</p>
@@ -201,6 +223,24 @@ export default function SettingsPage() {
           </motion.div>
         </TabsContent>
       </Tabs>
+
+      {/* Reset confirm */}
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Zerar conta</DialogTitle>
+            <DialogDescription>
+              Isso apaga todas as transações, metas, orçamentos, recorrentes e empresas, e refaz o onboarding. Seu login permanece. Não dá para desfazer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetOpen(false)}>Cancelar</Button>
+            <Button onClick={resetAccount} disabled={resetting} className="bg-amber-500 hover:bg-amber-600 text-white">
+              {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Zerar tudo e recomeçar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirm */}
       <Dialog open={delOpen} onOpenChange={setDelOpen}>

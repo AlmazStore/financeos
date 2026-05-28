@@ -33,15 +33,29 @@ type NavSection = { section: string; business?: boolean; items: NavItem[] };
 
 const NAV_ITEMS: NavSection[] = [
   {
-    section: "Pessoal",
+    section: "Geral",
     items: [
       { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    ],
+  },
+  {
+    section: "Dia a dia",
+    items: [
       { href: "/transactions", icon: CreditCard, label: "Transações" },
-      { href: "/recurring", icon: Repeat, label: "Recorrentes" },
-      { href: "/categories", icon: Tag, label: "Categorias" },
-      { href: "/budgets", icon: PiggyBank, label: "Orçamentos" },
       { href: "/cashflow", icon: Zap, label: "Contas a pagar/receber" },
+      { href: "/recurring", icon: Repeat, label: "Recorrentes" },
+    ],
+  },
+  {
+    section: "Planejamento",
+    items: [
+      { href: "/budgets", icon: PiggyBank, label: "Orçamentos" },
       { href: "/goals", icon: TrendingUp, label: "Metas" },
+    ],
+  },
+  {
+    section: "Análise",
+    items: [
       { href: "/health", icon: HeartPulse, label: "Saúde Financeira" },
       { href: "/reports", icon: BarChart3, label: "Relatórios" },
       { href: "/ai", icon: Bot, label: "IA Financeira", badge: "Pro" },
@@ -56,8 +70,9 @@ const NAV_ITEMS: NavSection[] = [
     ],
   },
   {
-    section: "Config",
+    section: "Ajustes",
     items: [
+      { href: "/categories", icon: Tag, label: "Categorias" },
       { href: "/settings", icon: Settings, label: "Configurações" },
     ],
   },
@@ -89,7 +104,7 @@ function Sidebar({ user, onClose, businessMode = true }: { user: SessionUser; on
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
         {sections.map((section) => (
           <div key={section.section}>
             <p className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-wider mb-2 px-2">

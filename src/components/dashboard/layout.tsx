@@ -7,9 +7,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { signOut } from "next-auth/react";
 import { TutorialOverlay } from "@/components/tutorial/TutorialOverlay";
 import { QuickAddFab } from "@/components/dashboard/quick-add-fab";
+import { NotificationBell } from "@/components/dashboard/notification-bell";
 import { notifyDataChanged } from "@/lib/events";
 import {
-  BarChart3, Bell, Bot, Building2, CreditCard,
+  BarChart3, Bot, Building2, CreditCard,
   LayoutDashboard, LogOut, Menu, Moon, Plus,
   Settings, Sun, TrendingUp, User, Wallet, X, Zap, BookOpen, Tag,
   HeartPulse, PiggyBank, Repeat, type LucideIcon,
@@ -197,9 +198,7 @@ function TopBar({ onMenuClick, user, onTutorial }: { onMenuClick: () => void; us
           <BookOpen className="w-4 h-4" />
         </button>
 
-        <button className="relative w-9 h-9 rounded-lg border border-border hover:bg-accent flex items-center justify-center transition-colors">
-          <Bell className="w-4 h-4" />
-        </button>
+        <NotificationBell />
 
         <Button variant="premium" size="sm" asChild>
           <Link href="/transactions/new">

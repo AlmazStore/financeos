@@ -42,7 +42,10 @@
       "Bash(rm -rf src/app/api/dbtest)",
       "Bash(npm uninstall *)",
       "Bash(curl -s -X POST https://financeos-app-chi.vercel.app/api/auth/register -H 'Content-Type: application/json' -d '{\"name\":\"João Silva\",\"email\":\"joao@teste.com\",\"password\":\"senha123456\"}' -w '\\\\nHTTP:%{http_code}')",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(curl -s -X POST https://financeos-app-chi.vercel.app/api/auth/register -H 'Content-Type: application/json' -d '{\"name\":\"Ana Lima\",\"email\":\"ana.quiz@teste.com\",\"password\":\"senha123456\"}' -w '\\\\nHTTP:%{http_code}')",
+      "Bash(curl -s -o /dev/null -w \"GET /dashboard → HTTP:%{http_code}\\\\n\" https://financeos-app-chi.vercel.app/dashboard)",
+      "Bash(curl -s -o /dev/null -w \"GET /onboarding → HTTP:%{http_code}\\\\n\" https://financeos-app-chi.vercel.app/onboarding)"
     ]
   }
 }

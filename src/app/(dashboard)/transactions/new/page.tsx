@@ -1,40 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, Calendar, Check, Loader2, Paperclip, Plus,
-  Repeat, Tag, X,
+  ArrowLeft, Calendar, Check, Loader2, Plus, Repeat,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { cn, formatCurrency } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 
-const CATEGORIES = [
-  { id: "food", name: "Alimentação", icon: "🛒", color: "#f59e0b" },
-  { id: "housing", name: "Moradia", icon: "🏠", color: "#ef4444" },
-  { id: "transport", name: "Transporte", icon: "🚗", color: "#3b82f6" },
-  { id: "health", name: "Saúde", icon: "💊", color: "#14b8a6" },
-  { id: "entertainment", name: "Lazer", icon: "🎮", color: "#ec4899" },
-  { id: "subscriptions", name: "Assinaturas", icon: "📺", color: "#8b5cf6" },
-  { id: "investment", name: "Investimentos", icon: "📈", color: "#6366f1" },
-  { id: "salary", name: "Salário", icon: "💼", color: "#10b981" },
-  { id: "freelance", name: "Freelance", icon: "💻", color: "#10b981" },
-  { id: "other", name: "Outros", icon: "📦", color: "#84cc16" },
-];
+type Category = {
+  id: string;
+  name: string;
+  icon: string | null;
+  color: string | null;
+  type: string;
+};
 
 export default function NewTransactionPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [type, setType] = useState<"INCOME" | "EXPENSE">("EXPENSE");
   const [amount, setAmount] = useState("");
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState<string | null>(null);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
   const [recurring, setRecurring] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((d) => setCategories(d.categories ?? []))
+      .catch(() => {});
+  }, []);
+
+  // Filter categories that match the selected type (or BOTH)
+  const visibleCategories = categories.filter(
+    (c) => c.type === type || c.type === "BOTH"
+  );
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value.replace(/[^0-9,.]/g, "").replace(",", ".");
@@ -43,9 +51,45 @@ export default function NewTransactionPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const value = parseFloat(amount);
+    if (!title || !value || value <= 0) {
+      toast("Preencha a descrição e um valor válido.", "error");
+      return;
+    }
+
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    router.push("/transactions");
+
+    // Future-dated transactions are PENDING (show up in cash flow)
+    const isFuture = new Date(date) > new Date(new Date().toDateString());
+
+    try {
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          amount: value,
+          type,
+          date,
+          categoryId: categoryId ?? undefined,
+          notes: notes || undefined,
+          isRecurring: recurring,
+          status: isFuture ? "PENDING" : "COMPLETED",
+        }),
+      });
+
+      if (!res.ok) throw new Error();
+
+      toast(
+        type === "INCOME" ? "Entrada registrada com sucesso!" : "Saída registrada com sucesso!",
+        "success"
+      );
+      router.push("/transactions");
+      router.refresh();
+    } catch {
+      toast("Erro ao salvar a transação. Tente novamente.", "error");
+      setLoading(false);
+    }
   };
 
   return (
@@ -72,7 +116,7 @@ export default function NewTransactionPage() {
               <button
                 key={t}
                 type="button"
-                onClick={() => setType(t)}
+                onClick={() => { setType(t); setCategoryId(null); }}
                 className={cn(
                   "flex items-center justify-center gap-2 p-4 rounded-xl border-2 font-medium transition-all",
                   type === t
@@ -95,11 +139,12 @@ export default function NewTransactionPage() {
               <span className="text-2xl text-muted-foreground font-light">R$</span>
               <input
                 type="text"
+                inputMode="decimal"
                 placeholder="0,00"
                 value={amount}
                 onChange={handleAmountChange}
                 className={cn(
-                  "flex-1 text-5xl font-bold bg-transparent outline-none border-0 placeholder:text-muted-foreground/30",
+                  "flex-1 text-5xl font-bold bg-transparent outline-none border-0 placeholder:text-muted-foreground/30 w-full",
                   type === "INCOME" ? "text-emerald-400" : "text-foreground"
                 )}
               />
@@ -121,24 +166,28 @@ export default function NewTransactionPage() {
           {/* Category */}
           <div className="space-y-3">
             <label className="text-sm font-medium">Categoria</label>
-            <div className="grid grid-cols-5 gap-2">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setCategory(cat.id)}
-                  className={cn(
-                    "flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all",
-                    category === cat.id
-                      ? "border-primary bg-primary/5"
-                      : "border-transparent hover:border-border bg-muted/30"
-                  )}
-                >
-                  <span className="text-xl">{cat.icon}</span>
-                  <span className="text-[10px] text-center leading-tight text-muted-foreground">{cat.name}</span>
-                </button>
-              ))}
-            </div>
+            {visibleCategories.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Carregando categorias...</p>
+            ) : (
+              <div className="grid grid-cols-5 gap-2">
+                {visibleCategories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCategoryId(cat.id)}
+                    className={cn(
+                      "flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all",
+                      categoryId === cat.id
+                        ? "border-primary bg-primary/5"
+                        : "border-transparent hover:border-border bg-muted/30"
+                    )}
+                  >
+                    <span className="text-xl">{cat.icon ?? "📦"}</span>
+                    <span className="text-[10px] text-center leading-tight text-muted-foreground">{cat.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Date */}
@@ -153,6 +202,9 @@ export default function NewTransactionPage() {
                 className="pl-9 h-11"
               />
             </div>
+            <p className="text-xs text-muted-foreground">
+              Datas futuras entram como &quot;pendente&quot; e aparecem no Fluxo de Caixa.
+            </p>
           </div>
 
           {/* Notes */}
@@ -183,7 +235,7 @@ export default function NewTransactionPage() {
             </div>
             <div>
               <p className="text-sm font-medium">Transação recorrente</p>
-              <p className="text-xs text-muted-foreground">Repetir mensalmente de forma automática</p>
+              <p className="text-xs text-muted-foreground">Marque despesas/receitas que se repetem todo mês</p>
             </div>
             <div className={cn(
               "ml-auto w-5 h-5 rounded-full border-2 flex items-center justify-center",

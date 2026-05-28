@@ -1,31 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
+import { useSession } from "next-auth/react";
 import {
-  Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart,
+  Area, AreaChart, Cell, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import {
-  AlertTriangle, ArrowRight, Bot, CreditCard, DollarSign,
-  Lightbulb, Percent, PiggyBank, Target, TrendingDown,
-  TrendingUp, Wallet, Zap, CheckCircle2,
+  Bot, PiggyBank, TrendingDown, TrendingUp, Wallet, Loader2,
+  ArrowRight, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
-import {
-  cn, formatCurrency, formatDate, formatPercentage,
-  calculatePercentage,
-} from "@/lib/utils";
-import {
-  mockMonthlyData, mockCategoryData, mockTransactions,
-  mockGoals, mockAccounts, mockBudgets, mockInsights,
-  mockWeeklyData,
-} from "@/lib/mock-data";
+import { GettingStarted } from "@/components/dashboard/getting-started";
+import { AddAccountDialog } from "@/components/dashboard/add-account-dialog";
+import { cn, formatCurrency, formatDate, formatPercentage, calculatePercentage } from "@/lib/utils";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
@@ -52,420 +48,385 @@ const PieCustomTooltip = ({ active, payload }: any) => {
     </div>
   );
 };
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
-function InsightCard({ insight }: { insight: typeof mockInsights[0] }) {
-  const config = {
-    warning: { bg: "bg-yellow-500/10", border: "border-yellow-500/20", icon: AlertTriangle, color: "text-yellow-400" },
-    success: { bg: "bg-emerald-500/10", border: "border-emerald-500/20", icon: CheckCircle2, color: "text-emerald-400" },
-    info: { bg: "bg-blue-500/10", border: "border-blue-500/20", icon: Lightbulb, color: "text-blue-400" },
-    alert: { bg: "bg-red-500/10", border: "border-red-500/20", icon: AlertTriangle, color: "text-red-400" },
+type DashboardData = {
+  summary: {
+    totalBalance: number;
+    currentIncome: number;
+    currentExpenses: number;
+    savings: number;
+    incomeChange: number;
+    expensesChange: number;
   };
-  const c = config[insight.type as keyof typeof config];
-  const Icon = c.icon;
+  monthlyData: { month: string; income: number; expenses: number; savings: number }[];
+  categoryData: { id: string; name: string; value: number; color: string; icon: string; percentage: number }[];
+  recentTransactions: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+  goals: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+  accounts: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+};
 
-  return (
-    <div className={cn("rounded-xl border p-4 flex gap-3", c.bg, c.border)}>
-      <div className="flex-shrink-0 mt-0.5">
-        <Icon className={cn("w-4 h-4", c.color)} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold mb-0.5">{insight.title}</p>
-        <p className="text-xs text-muted-foreground leading-relaxed">{insight.description}</p>
-        <button className={cn("text-xs font-medium mt-2 flex items-center gap-1", c.color)}>
-          {insight.action} <ArrowRight className="w-3 h-3" />
-        </button>
-      </div>
-    </div>
-  );
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Bom dia";
+  if (h < 18) return "Boa tarde";
+  return "Boa noite";
 }
 
 export function DashboardPage() {
-  const [chartPeriod, setChartPeriod] = useState<"monthly" | "weekly">("monthly");
+  const { data: session } = useSession();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const totalBalance = mockAccounts.reduce((a, b) => a + b.balance, 0);
-  const totalIncome = mockTransactions
-    .filter((t) => t.type === "INCOME")
-    .reduce((a, b) => a + b.amount, 0);
-  const totalExpenses = mockTransactions
-    .filter((t) => t.type === "EXPENSE")
-    .reduce((a, b) => a + b.amount, 0);
-  const savings = totalIncome - totalExpenses;
+  const load = useCallback(() => {
+    fetch("/api/dashboard/summary")
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const firstName = session?.user?.name?.split(" ")[0] ?? "";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="w-7 h-7 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const hasTransactions = (data?.recentTransactions?.length ?? 0) > 0;
+  const hasGoals = (data?.goals?.length ?? 0) > 0;
+  const hasAccounts = (data?.accounts?.length ?? 0) > 0;
+  const isEmpty = !hasTransactions && !hasAccounts && !hasGoals;
+
+  const summary = data?.summary ?? {
+    totalBalance: 0, currentIncome: 0, currentExpenses: 0, savings: 0, incomeChange: 0, expensesChange: 0,
+  };
 
   return (
     <div className="space-y-6 max-w-[1600px]">
       <WelcomeBanner />
-      <div className="px-4 sm:px-6 space-y-6 pb-6">
-      {/* Welcome bar */}
-      <motion.div
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <div>
-          <h2 className="text-xl font-bold">Bom dia, Rafael 👋</h2>
-          <p className="text-sm text-muted-foreground">
-            Aqui está um resumo do seu mês financeiro
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="success" className="gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Tudo em dia
-          </Badge>
-          <Button variant="outline" size="sm">
-            <Bot className="w-3.5 h-3.5" />
-            Insights IA
-          </Button>
-        </div>
-      </motion.div>
-
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard
-          title="Saldo Total"
-          value={totalBalance}
-          change={12.4}
-          variant="default"
-          icon={<Wallet className="w-4 h-4 text-muted-foreground" />}
-          delay={0}
-        />
-        <StatCard
-          title="Entradas do Mês"
-          value={totalIncome}
-          change={8.2}
-          variant="income"
-          icon={<TrendingUp className="w-4 h-4 text-emerald-400" />}
-          delay={0.1}
-        />
-        <StatCard
-          title="Saídas do Mês"
-          value={totalExpenses}
-          change={-3.1}
-          variant="expense"
-          icon={<TrendingDown className="w-4 h-4 text-red-400" />}
-          delay={0.2}
-        />
-        <StatCard
-          title="Saldo Livre"
-          value={savings}
-          change={47}
-          variant="neutral"
-          icon={<PiggyBank className="w-4 h-4 text-violet-400" />}
-          delay={0.3}
-        />
-      </div>
-
-      {/* Charts row */}
-      <div className="grid xl:grid-cols-3 gap-6">
-        {/* Main chart */}
+      <div className="px-4 sm:px-6 space-y-6 pb-6 pt-6">
+        {/* Greeting */}
         <motion.div
-          className="xl:col-span-2 rounded-xl border border-border bg-card p-5"
-          initial={{ opacity: 0, y: 20 }}
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
         >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h3 className="font-semibold">Evolução Financeira</h3>
-              <p className="text-sm text-muted-foreground">Entradas vs. Saídas</p>
-            </div>
-            <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-              {(["monthly", "weekly"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setChartPeriod(p)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-                    chartPeriod === p
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground"
-                  )}
-                >
-                  {p === "monthly" ? "Mensal" : "Semanal"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <ResponsiveContainer width="100%" height={240}>
-            {chartPeriod === "monthly" ? (
-              <AreaChart data={mockMonthlyData}>
-                <defs>
-                  <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
-                <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="income" name="Entradas" stroke="#10b981" fill="url(#incomeGrad)" strokeWidth={2} dot={false} />
-                <Area type="monotone" dataKey="expenses" name="Saídas" stroke="#ef4444" fill="url(#expenseGrad)" strokeWidth={2} dot={false} />
-              </AreaChart>
-            ) : (
-              <BarChart data={mockWeeklyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="day" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${v}`} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="amount" name="Gastos" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            )}
-          </ResponsiveContainer>
-        </motion.div>
-
-        {/* Category pie */}
-        <motion.div
-          className="rounded-xl border border-border bg-card p-5"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <div className="mb-4">
-            <h3 className="font-semibold">Por Categoria</h3>
-            <p className="text-sm text-muted-foreground">Distribuição de gastos</p>
-          </div>
-
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie
-                data={mockCategoryData}
-                cx="50%"
-                cy="50%"
-                innerRadius={50}
-                outerRadius={80}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {mockCategoryData.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} strokeWidth={0} />
-                ))}
-              </Pie>
-              <Tooltip content={<PieCustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-
-          <div className="space-y-2 mt-2">
-            {mockCategoryData.slice(0, 5).map((cat) => (
-              <div key={cat.name} className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                <span className="text-xs text-muted-foreground flex-1 truncate">{cat.name}</span>
-                <span className="text-xs font-medium">{cat.percentage}%</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Bottom row */}
-      <div className="grid xl:grid-cols-3 gap-6">
-        {/* Recent transactions */}
-        <motion.div
-          className="xl:col-span-1 rounded-xl border border-border bg-card p-5"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold">Transações Recentes</h3>
-              <p className="text-sm text-muted-foreground">Últimas movimentações</p>
-            </div>
-            <Button variant="ghost" size="sm" className="text-xs" asChild>
-              <a href="/transactions">Ver todas</a>
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            {mockTransactions.slice(0, 6).map((t) => (
-              <div key={t.id} className="flex items-center gap-3 group">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
-                  style={{ backgroundColor: t.category.color + "20" }}
-                >
-                  {t.category.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{t.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDate(t.date)}
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className={cn("text-sm font-semibold", t.type === "INCOME" ? "text-emerald-400" : "text-foreground")}>
-                    {t.type === "INCOME" ? "+" : "-"}{formatCurrency(t.amount)}
-                  </p>
-                  {t.status === "PENDING" && (
-                    <span className="text-[10px] text-yellow-400">Pendente</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Goals */}
-        <motion.div
-          className="rounded-xl border border-border bg-card p-5"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold">Metas Financeiras</h3>
-              <p className="text-sm text-muted-foreground">Acompanhe seus objetivos</p>
-            </div>
-            <Button variant="ghost" size="sm" className="text-xs" asChild>
-              <a href="/goals">Ver metas</a>
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            {mockGoals.map((goal) => {
-              const pct = calculatePercentage(goal.currentAmount, goal.targetAmount);
-              const completed = pct >= 100;
-              return (
-                <div key={goal.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">{goal.icon}</span>
-                      <span className="text-sm font-medium">{goal.title}</span>
-                    </div>
-                    <span className={cn("text-xs font-medium", completed ? "text-emerald-400" : "text-muted-foreground")}>
-                      {formatPercentage(pct, 0)}
-                    </span>
-                  </div>
-                  <Progress
-                    value={pct}
-                    className="h-1.5"
-                    indicatorClassName={completed ? "bg-emerald-500" : undefined}
-                    style={completed ? {} : { "--tw-bg-opacity": 1 } as React.CSSProperties}
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{formatCurrency(goal.currentAmount)}</span>
-                    <span>{formatCurrency(goal.targetAmount)}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
-
-        {/* Budgets & Insights */}
-        <motion.div
-          className="space-y-5"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-        >
-          {/* Budgets */}
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Orçamentos</h3>
-              <Badge variant="info" className="text-xs">Jan 2024</Badge>
-            </div>
-            <div className="space-y-3">
-              {mockBudgets.map((b) => {
-                const pct = calculatePercentage(b.spent, b.budgeted);
-                const over = pct > 85;
-                return (
-                  <div key={b.category} className="space-y-1.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-medium">{b.category}</span>
-                      <span className={cn("text-muted-foreground", over && "text-yellow-400")}>
-                        {formatCurrency(b.spent)} / {formatCurrency(b.budgeted)}
-                      </span>
-                    </div>
-                    <Progress
-                      value={pct}
-                      className="h-1.5"
-                      indicatorClassName={over ? "bg-yellow-500" : undefined}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* AI Insights */}
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-7 h-7 rounded-lg bg-violet-500/15 flex items-center justify-center">
-                <Bot className="w-3.5 h-3.5 text-violet-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-sm">IA Financeira</h3>
-                <p className="text-xs text-muted-foreground">Insights automáticos</p>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {mockInsights.slice(0, 2).map((insight) => (
-                <InsightCard key={insight.id} insight={insight} />
-              ))}
-            </div>
-            <Button variant="outline" size="sm" className="w-full mt-3 text-xs" asChild>
-              <a href="/ai">Ver todos os insights</a>
-            </Button>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Accounts row */}
-      <motion.div
-        className="rounded-xl border border-border bg-card p-5"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
-      >
-        <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-semibold">Contas e Carteiras</h3>
-            <p className="text-sm text-muted-foreground">Patrimônio distribuído</p>
+            <h2 className="text-xl font-bold">{greeting()}{firstName ? `, ${firstName}` : ""} 👋</h2>
+            <p className="text-sm text-muted-foreground">
+              {isEmpty ? "Vamos configurar seu controle financeiro" : "Aqui está um resumo do seu mês financeiro"}
+            </p>
           </div>
-          <Button variant="outline" size="sm" className="text-xs">
-            <CreditCard className="w-3.5 h-3.5" />
-            Adicionar conta
-          </Button>
-        </div>
+          {!isEmpty && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/ai">
+                <Bot className="w-3.5 h-3.5" />
+                Insights IA
+              </Link>
+            </Button>
+          )}
+        </motion.div>
 
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {mockAccounts.map((account) => (
-            <div
-              key={account.id}
-              className="rounded-xl border border-border/50 bg-muted/30 p-4 hover:bg-muted/50 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center text-base"
-                  style={{ backgroundColor: account.color + "20" }}
-                >
-                  {account.icon}
-                </div>
-                <div>
-                  <p className="text-sm font-medium">{account.name}</p>
-                  <p className="text-xs text-muted-foreground capitalize">
-                    {account.type.toLowerCase().replace("_", " ")}
-                  </p>
-                </div>
-              </div>
-              <p
-                className={cn(
-                  "text-lg font-bold",
-                  account.balance < 0 ? "text-red-400" : "text-foreground"
-                )}
-              >
-                {formatCurrency(account.balance)}
-              </p>
+        {/* Getting started guide (only when there's some data missing but user started) */}
+        {isEmpty ? (
+          <GettingStarted hasTransactions={hasTransactions} hasGoals={hasGoals} hasAccounts={hasAccounts} />
+        ) : (
+          <>
+            {/* Show compact getting-started if partial */}
+            {(!hasTransactions || !hasGoals) && (
+              <GettingStarted hasTransactions={hasTransactions} hasGoals={hasGoals} hasAccounts={hasAccounts} />
+            )}
+
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+              <StatCard
+                title="Saldo Total"
+                value={summary.totalBalance}
+                variant="default"
+                icon={<Wallet className="w-4 h-4 text-muted-foreground" />}
+                delay={0}
+              />
+              <StatCard
+                title="Entradas do Mês"
+                value={summary.currentIncome}
+                change={Math.round(summary.incomeChange * 10) / 10}
+                variant="income"
+                icon={<TrendingUp className="w-4 h-4 text-emerald-400" />}
+                delay={0.1}
+              />
+              <StatCard
+                title="Saídas do Mês"
+                value={summary.currentExpenses}
+                change={Math.round(summary.expensesChange * 10) / 10}
+                variant="expense"
+                icon={<TrendingDown className="w-4 h-4 text-red-400" />}
+                delay={0.2}
+              />
+              <StatCard
+                title="Saldo Livre"
+                value={summary.savings}
+                variant="neutral"
+                icon={<PiggyBank className="w-4 h-4 text-violet-400" />}
+                delay={0.3}
+              />
             </div>
-          ))}
-        </div>
-      </motion.div>
+
+            {/* Charts row */}
+            <div className="grid xl:grid-cols-3 gap-6">
+              {/* Main chart */}
+              <motion.div
+                className="xl:col-span-2 rounded-xl border border-border bg-card p-5"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <div className="mb-6">
+                  <h3 className="font-semibold">Evolução Financeira</h3>
+                  <p className="text-sm text-muted-foreground">Entradas vs. Saídas (últimos 7 meses)</p>
+                </div>
+
+                <ResponsiveContainer width="100%" height={240}>
+                  <AreaChart data={data?.monthlyData ?? []}>
+                    <defs>
+                      <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="month" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area type="monotone" dataKey="income" name="Entradas" stroke="#10b981" fill="url(#incomeGrad)" strokeWidth={2} dot={false} />
+                    <Area type="monotone" dataKey="expenses" name="Saídas" stroke="#ef4444" fill="url(#expenseGrad)" strokeWidth={2} dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </motion.div>
+
+              {/* Category pie */}
+              <motion.div
+                className="rounded-xl border border-border bg-card p-5"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <div className="mb-4">
+                  <h3 className="font-semibold">Por Categoria</h3>
+                  <p className="text-sm text-muted-foreground">Distribuição de gastos do mês</p>
+                </div>
+
+                {(data?.categoryData?.length ?? 0) === 0 ? (
+                  <div className="h-[180px] flex items-center justify-center text-center">
+                    <p className="text-sm text-muted-foreground">Sem gastos registrados este mês.</p>
+                  </div>
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <PieChart>
+                        <Pie data={data?.categoryData ?? []} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
+                          {(data?.categoryData ?? []).map((entry, i) => (
+                            <Cell key={i} fill={entry.color} strokeWidth={0} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<PieCustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+
+                    <div className="space-y-2 mt-2">
+                      {(data?.categoryData ?? []).slice(0, 5).map((cat) => (
+                        <div key={cat.id} className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                          <span className="text-xs text-muted-foreground flex-1 truncate">{cat.name}</span>
+                          <span className="text-xs font-medium">{cat.percentage}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            </div>
+
+            {/* Bottom row */}
+            <div className="grid xl:grid-cols-2 gap-6">
+              {/* Recent transactions */}
+              <motion.div
+                className="rounded-xl border border-border bg-card p-5"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold">Transações Recentes</h3>
+                    <p className="text-sm text-muted-foreground">Últimas movimentações</p>
+                  </div>
+                  <Button variant="ghost" size="sm" className="text-xs" asChild>
+                    <Link href="/transactions">Ver todas</Link>
+                  </Button>
+                </div>
+
+                {!hasTransactions ? (
+                  <div className="py-8 text-center">
+                    <p className="text-sm text-muted-foreground mb-3">Nenhuma transação ainda.</p>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href="/transactions/new">Adicionar primeira</Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {data?.recentTransactions.slice(0, 7).map((t) => (
+                      <div key={t.id} className="flex items-center gap-3">
+                        <div
+                          className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
+                          style={{ backgroundColor: (t.category?.color ?? "#84cc16") + "20" }}
+                        >
+                          {t.category?.icon ?? "📦"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{t.title}</p>
+                          <p className="text-xs text-muted-foreground">{formatDate(new Date(t.date))}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className={cn("text-sm font-semibold", t.type === "INCOME" ? "text-emerald-400" : "text-foreground")}>
+                            {t.type === "INCOME" ? "+" : "-"}{formatCurrency(t.amount)}
+                          </p>
+                          {t.status === "PENDING" && <span className="text-[10px] text-yellow-400">Pendente</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+
+              {/* Goals */}
+              <motion.div
+                className="rounded-xl border border-border bg-card p-5"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold">Metas Financeiras</h3>
+                    <p className="text-sm text-muted-foreground">Acompanhe seus objetivos</p>
+                  </div>
+                  <Button variant="ghost" size="sm" className="text-xs" asChild>
+                    <Link href="/goals">Ver metas</Link>
+                  </Button>
+                </div>
+
+                {!hasGoals ? (
+                  <div className="py-8 text-center">
+                    <p className="text-sm text-muted-foreground mb-3">Você ainda não tem metas.</p>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href="/goals">Criar primeira meta</Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {data?.goals.map((goal) => {
+                      const pct = calculatePercentage(goal.currentAmount, goal.targetAmount);
+                      const completed = pct >= 100;
+                      return (
+                        <div key={goal.id} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">{goal.icon ?? "🎯"}</span>
+                              <span className="text-sm font-medium">{goal.title}</span>
+                            </div>
+                            <span className={cn("text-xs font-medium", completed ? "text-emerald-400" : "text-muted-foreground")}>
+                              {formatPercentage(pct, 0)}
+                            </span>
+                          </div>
+                          <Progress value={pct} className="h-1.5" indicatorClassName={completed ? "bg-emerald-500" : undefined} />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>{formatCurrency(goal.currentAmount)}</span>
+                            <span>{formatCurrency(goal.targetAmount)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </motion.div>
+            </div>
+
+            {/* Accounts row */}
+            <motion.div
+              className="rounded-xl border border-border bg-card p-5"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-semibold">Contas e Carteiras</h3>
+                  <p className="text-sm text-muted-foreground">Seu patrimônio distribuído</p>
+                </div>
+                <AddAccountDialog onCreated={load} />
+              </div>
+
+              {!hasAccounts ? (
+                <div className="py-8 text-center">
+                  <p className="text-sm text-muted-foreground">Cadastre suas contas para acompanhar o saldo total.</p>
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  {data?.accounts.map((account) => (
+                    <div key={account.id} className="rounded-xl border border-border/50 bg-muted/30 p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-base" style={{ backgroundColor: (account.color ?? "#8b5cf6") + "20" }}>
+                          {account.icon ?? "🏦"}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{account.name}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{account.type.toLowerCase().replace("_", " ")}</p>
+                        </div>
+                      </div>
+                      <p className={cn("text-lg font-bold", account.balance < 0 ? "text-red-400" : "text-foreground")}>
+                        {formatCurrency(account.balance)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+
+            {/* AI teaser */}
+            <motion.div
+              className="rounded-xl border border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-transparent p-5"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-sm">Análise inteligente das suas finanças</h3>
+                  <p className="text-xs text-muted-foreground">A IA analisa seus gastos reais e mostra onde economizar.</p>
+                </div>
+                <Button variant="purple" size="sm" asChild>
+                  <Link href="/ai">
+                    Abrir IA
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
       </div>
     </div>
   );

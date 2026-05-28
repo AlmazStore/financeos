@@ -174,7 +174,7 @@ export function DashboardPage() {
                 delay={0.2}
               />
               <StatCard
-                title="Saldo Livre"
+                title="Sobrou no mês"
                 value={summary.savings}
                 variant="neutral"
                 icon={<PiggyBank className="w-4 h-4 text-violet-400" />}

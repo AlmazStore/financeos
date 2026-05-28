@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import {
   ArrowDownLeft, ArrowUpRight, Check, Plus, Search,
   Trash2, TrendingDown, TrendingUp, Receipt, Loader2, Upload, Pencil, Copy,
+  SlidersHorizontal, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,13 @@ export default function TransactionsPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("Todas");
+  const [showFilters, setShowFilters] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("");      // "" = todas, "__none__" = sem categoria, ou id
+  const [statusFilter, setStatusFilter] = useState("ALL");        // ALL | COMPLETED | PENDING | CANCELLED
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [minValue, setMinValue] = useState("");
+  const [maxValue, setMaxValue] = useState("");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -204,8 +212,33 @@ export default function TransactionsPage() {
       (typeFilter === "Entradas" && t.type === "INCOME") ||
       (typeFilter === "Saídas" && t.type === "EXPENSE") ||
       (typeFilter === "Pendentes" && t.status === "PENDING");
-    return matchSearch && matchType;
+
+    const matchCategory =
+      !categoryFilter ||
+      (categoryFilter === "__none__" ? t.categoryId == null : t.categoryId === categoryFilter);
+
+    const matchStatus = statusFilter === "ALL" || t.status === statusFilter;
+
+    const d = new Date(t.date);
+    const matchFrom = !dateFrom || d >= new Date(dateFrom + "T00:00:00");
+    const matchTo = !dateTo || d <= new Date(dateTo + "T23:59:59");
+
+    const min = parseFloat(minValue.replace(",", "."));
+    const max = parseFloat(maxValue.replace(",", "."));
+    const matchMin = isNaN(min) || t.amount >= min;
+    const matchMax = isNaN(max) || t.amount <= max;
+
+    return matchSearch && matchType && matchCategory && matchStatus && matchFrom && matchTo && matchMin && matchMax;
   });
+
+  const activeFilters =
+    (categoryFilter ? 1 : 0) + (statusFilter !== "ALL" ? 1 : 0) +
+    (dateFrom || dateTo ? 1 : 0) + (minValue || maxValue ? 1 : 0);
+
+  const clearFilters = () => {
+    setCategoryFilter(""); setStatusFilter("ALL");
+    setDateFrom(""); setDateTo(""); setMinValue(""); setMaxValue("");
+  };
 
   const allFilteredSelected = filtered.length > 0 && filtered.every((t) => selected.has(t.id));
 
@@ -307,7 +340,86 @@ export default function TransactionsPage() {
               </button>
             ))}
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters((s) => !s)}
+            className={cn("h-9", (showFilters || activeFilters > 0) && "border-primary text-primary")}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            Filtros
+            {activeFilters > 0 && (
+              <span className="ml-1 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">{activeFilters}</span>
+            )}
+          </Button>
         </div>
+
+        {/* Advanced filters panel */}
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="border-t border-border mt-4 pt-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-4"
+          >
+            {/* Categoria */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Categoria</label>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="w-full h-9 text-sm bg-muted/50 border border-border rounded-lg px-2 outline-none focus:border-primary"
+              >
+                <option value="">Todas</option>
+                <option value="__none__">Sem categoria</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full h-9 text-sm bg-muted/50 border border-border rounded-lg px-2 outline-none focus:border-primary"
+              >
+                <option value="ALL">Todos</option>
+                <option value="COMPLETED">Concluído</option>
+                <option value="PENDING">Pendente</option>
+                <option value="CANCELLED">Cancelado</option>
+              </select>
+            </div>
+
+            {/* Data */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Período</label>
+              <div className="flex gap-2">
+                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 text-xs" />
+                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 text-xs" />
+              </div>
+            </div>
+
+            {/* Valor */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Valor (R$)</label>
+              <div className="flex gap-2">
+                <Input inputMode="decimal" placeholder="mín" value={minValue} onChange={(e) => setMinValue(e.target.value.replace(/[^0-9,.]/g, ""))} className="h-9 text-xs" />
+                <Input inputMode="decimal" placeholder="máx" value={maxValue} onChange={(e) => setMaxValue(e.target.value.replace(/[^0-9,.]/g, ""))} className="h-9 text-xs" />
+              </div>
+            </div>
+
+            {activeFilters > 0 && (
+              <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
+                  <X className="w-3.5 h-3.5" />
+                  Limpar filtros
+                </Button>
+              </div>
+            )}
+          </motion.div>
+        )}
       </div>
 
       {/* Bulk action bar */}

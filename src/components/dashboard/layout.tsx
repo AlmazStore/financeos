@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { signOut } from "next-auth/react";
 import { TutorialOverlay } from "@/components/tutorial/TutorialOverlay";
 import { QuickAddFab } from "@/components/dashboard/quick-add-fab";
+import { notifyDataChanged } from "@/lib/events";
 import {
   BarChart3, Bell, Bot, Building2, CreditCard,
   LayoutDashboard, LogOut, Menu, Moon, Plus,
   Settings, Sun, TrendingUp, User, Wallet, X, Zap, BookOpen, Tag,
-  HeartPulse, PiggyBank, type LucideIcon,
+  HeartPulse, PiggyBank, Repeat, type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ const NAV_ITEMS: NavSection[] = [
     items: [
       { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
       { href: "/transactions", icon: CreditCard, label: "Transações" },
+      { href: "/recurring", icon: Repeat, label: "Recorrentes" },
       { href: "/categories", icon: Tag, label: "Categorias" },
       { href: "/budgets", icon: PiggyBank, label: "Orçamentos" },
       { href: "/cashflow", icon: Zap, label: "Contas a pagar/receber" },
@@ -153,6 +155,7 @@ function TopBar({ onMenuClick, user, onTutorial }: { onMenuClick: () => void; us
       "/transactions": "Transações",
       "/transactions/new": "Nova Transação",
       "/transactions/import": "Importar Extrato",
+      "/recurring": "Recorrentes",
       "/categories": "Categorias",
       "/budgets": "Orçamentos",
       "/goals": "Metas",
@@ -212,6 +215,17 @@ function TopBar({ onMenuClick, user, onTutorial }: { onMenuClick: () => void; us
 export function DashboardLayout({ children, user, showTutorial = false, businessMode = true }: { children: React.ReactNode; user: SessionUser; showTutorial?: boolean; businessMode?: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(showTutorial);
+
+  // Lazily materialize due recurring transactions once per session
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem("recurring_ran")) return;
+    sessionStorage.setItem("recurring_ran", "1");
+    fetch("/api/recurring/run", { method: "POST" })
+      .then((r) => r.json())
+      .then((d) => { if (d?.created > 0) notifyDataChanged(); })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">

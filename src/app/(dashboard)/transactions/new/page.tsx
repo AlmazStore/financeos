@@ -82,8 +82,22 @@ export default function NewTransactionPage() {
 
       if (!res.ok) throw new Error();
 
+      // If marked recurring, also create a monthly rule starting next period
+      if (recurring) {
+        await fetch("/api/recurring", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title, amount: value, type, categoryId: categoryId ?? undefined,
+            frequency: "MONTHLY", startDate: date, startNextPeriod: true,
+          }),
+        }).catch(() => {});
+      }
+
       toast(
-        type === "INCOME" ? "Entrada registrada com sucesso!" : "Saída registrada com sucesso!",
+        recurring
+          ? "Registrado! Vai se repetir automaticamente todo mês."
+          : type === "INCOME" ? "Entrada registrada com sucesso!" : "Saída registrada com sucesso!",
         "success"
       );
       notifyDataChanged();

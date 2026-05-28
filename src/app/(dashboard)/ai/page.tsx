@@ -12,13 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency } from "@/lib/utils";
-import { useAutoRefresh } from "@/lib/events";
+import { useAutoRefresh, notifyDataChanged } from "@/lib/events";
 
 const QUICK_QUESTIONS = [
-  "Como posso economizar mais este mês?",
   "Onde eu mais gasto?",
-  "Quanto tenho de saldo?",
-  "Tenho contas a pagar?",
+  "Registra um gasto de R$50 no mercado hoje",
+  "Cria uma meta de R$5.000 para viagem",
+  "Define um orçamento de R$800 em alimentação",
 ];
 
 type Insight = { id: string; type: "warning" | "success" | "info" | "alert"; title: string; description: string };
@@ -37,7 +37,7 @@ export default function AIPage() {
   const [chat, setChat] = useState<Array<{ role: "user" | "ai"; content: string }>>([
     {
       role: "ai",
-      content: "Olá! Sou sua IA financeira. Eu analiso suas transações reais para te dar insights personalizados. Pergunte sobre seus gastos, economia, metas ou contas a pagar.",
+      content: "Olá! Sou sua IA financeira. Além de analisar seus dados reais, eu executo tarefas pra você: registrar transações, criar metas, definir orçamentos e recorrentes. É só pedir — ex: \"registra um gasto de R$50 no mercado\" ou \"cria uma meta de R$5.000 pra viagem\".",
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -76,6 +76,8 @@ export default function AIPage() {
       });
       const data = await res.json();
       setChat((prev) => [...prev, { role: "ai", content: data.answer ?? "Não consegui responder agora." }]);
+      // If the assistant performed an action (created/updated data), refresh the app
+      if (data.changed) { notifyDataChanged(); loadInsights(); }
     } catch {
       setChat((prev) => [...prev, { role: "ai", content: "Ops, tive um problema ao analisar. Tente novamente." }]);
     } finally {

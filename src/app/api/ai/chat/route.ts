@@ -159,6 +159,7 @@ const TOOLS = [
           to: { type: "string", description: "Data final YYYY-MM-DD (opcional)" },
           limit: { type: "number", description: "Máximo de resultados (padrão 20, máx 50)" },
         },
+        required: [],
       },
     },
   },

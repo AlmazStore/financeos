@@ -3,11 +3,12 @@ import { NextResponse } from "next/server";
 
 const PUBLIC_ROUTES = ["/", "/login", "/register"];
 const API_AUTH = "/api/auth";
+const API_DBTEST = "/api/dbtest";
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
-  const isPublic = PUBLIC_ROUTES.includes(pathname) || pathname.startsWith(API_AUTH);
+  const isPublic = PUBLIC_ROUTES.includes(pathname) || pathname.startsWith(API_AUTH) || pathname.startsWith(API_DBTEST);
   const isAuthed = !!req.auth;
 
   if (!isPublic && !isAuthed) {

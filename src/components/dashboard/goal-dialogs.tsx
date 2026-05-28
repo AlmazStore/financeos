@@ -163,7 +163,12 @@ export function AddValueDialog({ goalId, goalTitle, onDone }: { goalId: string; 
         body: JSON.stringify({ addAmount: amount }),
       });
       if (!res.ok) throw new Error();
-      toast(`R$ ${amount.toFixed(2)} adicionados à meta!`, "success");
+      const updated = await res.json().catch(() => null);
+      if (updated?.isCompleted) {
+        toast("🏆 Meta concluída! Conquista desbloqueada. Parabéns!", "success");
+      } else {
+        toast(`R$ ${amount.toFixed(2)} adicionados à meta!`, "success");
+      }
       notifyDataChanged();
       setOpen(false);
       setValue("");

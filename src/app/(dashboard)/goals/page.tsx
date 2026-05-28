@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { Target, Trophy, TrendingUp, Loader2, Trash2, Lightbulb, CalendarClock, Scissors } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -76,7 +78,12 @@ export default function GoalsPage() {
             {completed.length} concluídas · {inProgress.length} em andamento
           </p>
         </div>
-        <CreateGoalDialog onCreated={load} />
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/achievements"><Trophy className="w-4 h-4" />Conquistas</Link>
+          </Button>
+          <CreateGoalDialog onCreated={load} />
+        </div>
       </div>
 
       {loading ? (

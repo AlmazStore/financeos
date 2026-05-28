@@ -13,7 +13,7 @@ import {
   BarChart3, Bot, Building2, CreditCard,
   LayoutDashboard, LogOut, Menu, Moon, Plus,
   Settings, Sun, TrendingUp, User, Wallet, X, Zap, BookOpen, Tag,
-  HeartPulse, PiggyBank, Repeat, type LucideIcon,
+  HeartPulse, PiggyBank, Repeat, Trophy, type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ const NAV_ITEMS: NavSection[] = [
     items: [
       { href: "/budgets", icon: PiggyBank, label: "Orçamentos" },
       { href: "/goals", icon: TrendingUp, label: "Metas" },
+      { href: "/achievements", icon: Trophy, label: "Conquistas" },
     ],
   },
   {
@@ -175,6 +176,7 @@ function TopBar({ onMenuClick, user, onTutorial }: { onMenuClick: () => void; us
       "/categories": "Categorias",
       "/budgets": "Orçamentos",
       "/goals": "Metas",
+      "/achievements": "Conquistas",
       "/health": "Saúde Financeira",
       "/reports": "Relatórios",
       "/ai": "IA Financeira",

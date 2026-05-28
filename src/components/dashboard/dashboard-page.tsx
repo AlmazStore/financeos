@@ -135,12 +135,12 @@ export function DashboardPage() {
 
         {/* Getting started guide (only when there's some data missing but user started) */}
         {isEmpty ? (
-          <GettingStarted hasTransactions={hasTransactions} hasGoals={hasGoals} hasAccounts={hasAccounts} />
+          <GettingStarted hasTransactions={hasTransactions} hasGoals={hasGoals} />
         ) : (
           <>
             {/* Show compact getting-started if partial */}
             {(!hasTransactions || !hasGoals) && (
-              <GettingStarted hasTransactions={hasTransactions} hasGoals={hasGoals} hasAccounts={hasAccounts} />
+              <GettingStarted hasTransactions={hasTransactions} hasGoals={hasGoals} />
             )}
 
             {/* Stats grid */}

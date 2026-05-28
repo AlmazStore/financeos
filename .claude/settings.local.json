@@ -45,7 +45,12 @@
       "Bash(npx tsc *)",
       "Bash(curl -s -X POST https://financeos-app-chi.vercel.app/api/auth/register -H 'Content-Type: application/json' -d '{\"name\":\"Ana Lima\",\"email\":\"ana.quiz@teste.com\",\"password\":\"senha123456\"}' -w '\\\\nHTTP:%{http_code}')",
       "Bash(curl -s -o /dev/null -w \"GET /dashboard → HTTP:%{http_code}\\\\n\" https://financeos-app-chi.vercel.app/dashboard)",
-      "Bash(curl -s -o /dev/null -w \"GET /onboarding → HTTP:%{http_code}\\\\n\" https://financeos-app-chi.vercel.app/onboarding)"
+      "Bash(curl -s -o /dev/null -w \"GET /onboarding → HTTP:%{http_code}\\\\n\" https://financeos-app-chi.vercel.app/onboarding)",
+      "Bash(curl -s -X POST https://financeos-app-chi.vercel.app/api/auth/register -H 'Content-Type: application/json' -d '{\"name\":\"Cliente Real\",\"email\":\"__TRACKED_VAR__\",\"password\":\"senha123456\"}' -w '\\\\nregister:%{http_code}\\\\n')",
+      "Bash(curl -s -o /dev/null -w 'ai/insights\\(noauth\\):%{http_code}\\\\n' https://financeos-app-chi.vercel.app/api/ai/insights)",
+      "Bash(curl -s -o /dev/null -w 'companies\\(noauth\\):%{http_code}\\\\n' https://financeos-app-chi.vercel.app/api/companies)",
+      "Bash(curl -s -o /dev/null -w 'cashflow\\(noauth\\):%{http_code}\\\\n' https://financeos-app-chi.vercel.app/api/cashflow)",
+      "Bash(curl -s -o /dev/null -w 'reports\\(noauth\\):%{http_code}\\\\n' https://financeos-app-chi.vercel.app/api/reports)"
     ]
   }
 }

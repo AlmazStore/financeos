@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  Rocket, Receipt, Target, CalendarClock, Wallet,
+  Rocket, Receipt, Target, CalendarClock,
   ArrowRight, CheckCircle2, Circle, Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,27 +12,18 @@ import { cn } from "@/lib/utils";
 type Props = {
   hasTransactions: boolean;
   hasGoals: boolean;
-  hasAccounts: boolean;
 };
 
-export function GettingStarted({ hasTransactions, hasGoals, hasAccounts }: Props) {
+export function GettingStarted({ hasTransactions, hasGoals }: Props) {
   const steps = [
-    {
-      done: hasAccounts,
-      icon: Wallet,
-      title: "Cadastre suas contas",
-      desc: "Adicione seu banco, carteira ou cartão para acompanhar o saldo. (opcional)",
-      href: "/dashboard",
-      cta: "Adicionar conta",
-      optional: true,
-    },
     {
       done: hasTransactions,
       icon: Receipt,
       title: "Registre o extrato do mês",
-      desc: "Pegue o extrato do seu banco deste mês e adicione cada entrada e saída aqui.",
-      href: "/transactions/new",
-      cta: "Adicionar transação",
+      desc: "Importe o extrato do seu banco (a forma mais rápida) ou adicione cada entrada e saída manualmente.",
+      href: "/transactions/import",
+      cta: "Importar extrato",
+      secondary: { href: "/transactions/new", label: "Adicionar manual" },
     },
     {
       done: hasGoals,
@@ -102,24 +93,26 @@ export function GettingStarted({ hasTransactions, hasGoals, hasAccounts }: Props
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className={cn("text-sm font-semibold", step.done && "line-through text-muted-foreground")}>
-                  {step.title}
-                </p>
-                {step.optional && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">opcional</span>
-                )}
-              </div>
+              <p className={cn("text-sm font-semibold", step.done && "line-through text-muted-foreground")}>
+                {step.title}
+              </p>
               <p className="text-xs text-muted-foreground mt-0.5">{step.desc}</p>
             </div>
 
             {!step.done && (
-              <Button variant="outline" size="sm" className="flex-shrink-0 gap-1.5" asChild>
-                <Link href={step.href}>
-                  {step.cta}
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                <Button variant="premium" size="sm" className="gap-1.5" asChild>
+                  <Link href={step.href}>
+                    {step.cta}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </Button>
+                {step.secondary && (
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={step.secondary.href}>{step.secondary.label}</Link>
+                  </Button>
+                )}
+              </div>
             )}
           </motion.div>
         ))}

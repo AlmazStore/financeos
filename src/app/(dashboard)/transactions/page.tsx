@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   ArrowDownLeft, ArrowUpRight, Check, Plus, Search,
-  SlidersHorizontal, Trash2, TrendingDown, TrendingUp, Receipt, Loader2,
+  Trash2, TrendingDown, TrendingUp, Receipt, Loader2, Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,6 +87,12 @@ export default function TransactionsPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/transactions/import">
+              <Upload className="w-4 h-4" />
+              Importar extrato
+            </Link>
+          </Button>
           <Button variant="premium" size="sm" asChild>
             <Link href="/transactions/new">
               <Plus className="w-4 h-4" />
@@ -168,14 +174,22 @@ export default function TransactionsPage() {
           <EmptyState
             icon={Receipt}
             title="Nenhuma transação ainda"
-            description="Comece adicionando o extrato do seu banco deste mês. Dica: faça isso a cada 3 dias para manter o controle em dia."
+            description="Importe o extrato do seu banco para registrar tudo de uma vez, ou adicione manualmente. Dica: faça isso a cada 3 dias para manter o controle em dia."
             action={
-              <Button variant="premium" asChild>
-                <Link href="/transactions/new">
-                  <Plus className="w-4 h-4" />
-                  Adicionar primeira transação
-                </Link>
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button variant="premium" asChild>
+                  <Link href="/transactions/import">
+                    <Upload className="w-4 h-4" />
+                    Importar extrato
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href="/transactions/new">
+                    <Plus className="w-4 h-4" />
+                    Adicionar manual
+                  </Link>
+                </Button>
+              </div>
             }
           />
         ) : filtered.length === 0 ? (

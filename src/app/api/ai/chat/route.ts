@@ -33,10 +33,12 @@ Você pode CONVERSAR e também EXECUTAR TAREFAS para o cliente usando as ferrame
 - criar lançamentos recorrentes (salário, aluguel, assinaturas)
 - criar categorias novas
 - classificar/recategorizar transações existentes por palavra-chave (ex: "põe todos os pix do Facebook na categoria Meta Ads")
+- consultar/buscar as transações reais (search_transactions) para responder perguntas sobre lançamentos específicos, pessoas, estabelecimentos ou períodos
 
 Regras:
 - Quando o cliente pedir uma ação, USE a ferramenta apropriada em vez de só explicar. Nunca responda com um resumo genérico quando a pessoa pediu uma tarefa.
 - Para pedidos compostos, encadeie ferramentas: ex. "crie a categoria Meta Ads e jogue os pix do facebook nela" = chame create_category e depois categorize_transactions.
+- Para perguntas sobre transações específicas (ex: "pix para Evelyn na sexta", "quanto gastei no Uber"), USE search_transactions e responda com base no resultado. Resolva datas relativas ("sexta", "ontem", "este mês") usando a data de hoje informada no contexto.
 - Após executar, confirme em 1-2 frases o que foi feito (quantidade afetada, valores).
 - Se faltar uma informação essencial (ex: valor), pergunte antes de executar.
 - Use os dados financeiros reais do contexto. Nunca invente números.
@@ -47,11 +49,13 @@ function buildContext(
   a: Awaited<ReturnType<typeof analyzeFinances>>,
   goals: { title: string; targetAmount: number; currentAmount: number; deadline: Date | null }[],
   budgets: { name: string; amount: number; spent: number }[],
-  categories: { name: string; type: string }[]
+  categories: { name: string; type: string }[],
+  accounts: { name: string; balance: number }[]
 ): string {
   const s = a.summary;
   const lines: string[] = [];
   lines.push("CONTEXTO — DADOS FINANCEIROS REAIS (mês atual):");
+  if (accounts.length) lines.push("- Contas: " + accounts.map((ac) => `${ac.name} ${BRL(ac.balance)}`).join(", "));
   lines.push(`- Entradas: ${BRL(s.income)} | Saídas: ${BRL(s.expenses)} | Sobrou: ${BRL(s.savings)} (poupança ${s.savingsRate.toFixed(0)}%)`);
   lines.push(`- Saldo total: ${BRL(s.totalBalance)} | Média mensal: economiza ${BRL(s.avgMonthlySavings)}`);
   if (a.topCategories.length) lines.push("- Maiores gastos: " + a.topCategories.slice(0, 5).map((c) => `${c.name} ${BRL(c.amount)} (${c.pct}%)`).join(", "));
@@ -138,6 +142,23 @@ const TOOLS = [
           category: { type: "string", description: "Nome da categoria (opcional)" },
         },
         required: ["title", "amount", "type"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_transactions",
+      description: "Consulta as transações reais do usuário para responder perguntas (ex: 'pix para Evelyn na sexta', 'meus gastos com Uber', 'entradas de maio'). Use sempre que a pergunta envolver transações específicas, datas, pessoas ou estabelecimentos.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Texto buscado na descrição (pessoa, estabelecimento, palavra). Opcional." },
+          type: { type: "string", enum: ["INCOME", "EXPENSE"], description: "Filtrar entradas ou saídas (opcional)" },
+          from: { type: "string", description: "Data inicial YYYY-MM-DD (opcional)" },
+          to: { type: "string", description: "Data final YYYY-MM-DD (opcional)" },
+          limit: { type: "number", description: "Máximo de resultados (padrão 20, máx 50)" },
+        },
       },
     },
   },
@@ -249,6 +270,23 @@ async function executeTool(name: string, args: any, userId: string, cats: Cat[])
       return { result: `OK: recorrência "${args.title}" de ${BRL(amount)} (${freq}) criada.`, changed: true };
     }
 
+    if (name === "search_transactions") {
+      const where: Record<string, unknown> = { userId };
+      if (args.query) where.title = { contains: String(args.query), mode: "insensitive" };
+      if (args.type === "INCOME" || args.type === "EXPENSE") where.type = args.type;
+      const from = args.from && /^\d{4}-\d{2}-\d{2}/.test(args.from) ? new Date(args.from + "T00:00:00") : null;
+      const to = args.to && /^\d{4}-\d{2}-\d{2}/.test(args.to) ? new Date(args.to + "T23:59:59") : null;
+      if (from || to) where.date = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };
+      const limit = Math.min(Math.max(Number(args.limit) || 20, 1), 50);
+      const txs = await db.transaction.findMany({
+        where, include: { category: { select: { name: true } } }, orderBy: { date: "desc" }, take: limit,
+      });
+      if (txs.length === 0) return { result: "Nenhuma transação encontrada com esses filtros.", changed: false };
+      const sum = txs.reduce((a, t) => a + (t.type === "INCOME" ? t.amount : -t.amount), 0);
+      const lines = txs.map((t) => `${new Date(t.date).toLocaleDateString("pt-BR")} · ${t.title} · ${t.type === "INCOME" ? "+" : "-"}${BRL(t.amount)} · ${t.category?.name ?? "Sem categoria"}${t.status === "PENDING" ? " · PENDENTE" : t.status === "CANCELLED" ? " · CANCELADO" : ""}`);
+      return { result: `${txs.length} transação(ões) encontrada(s) (saldo líquido ${BRL(sum)}):\n` + lines.join("\n"), changed: false };
+    }
+
     if (name === "create_category") {
       const cname = String(args.name ?? "").trim();
       if (!cname) return { result: "Erro: informe o nome da categoria.", changed: false };
@@ -308,16 +346,19 @@ export async function POST(req: Request) {
 
   try {
     const now = new Date();
-    const [goalRows, budgetRows, monthExpenses, catRows] = await Promise.all([
+    const [goalRows, budgetRows, monthExpenses, catRows, accountRows] = await Promise.all([
       db.goal.findMany({ where: { userId, isCompleted: false }, take: 8, select: { title: true, targetAmount: true, currentAmount: true, deadline: true } }),
       db.budget.findMany({ where: { userId }, include: { category: { select: { name: true } } } }),
       db.transaction.groupBy({ by: ["categoryId"], where: { userId, type: "EXPENSE", status: "COMPLETED", date: { gte: startOfMonth(now), lte: endOfMonth(now) } }, _sum: { amount: true } }),
       db.category.findMany({ where: { userId }, select: { id: true, name: true, type: true } }),
+      db.financialAccount.findMany({ where: { userId, isActive: true }, select: { name: true, balance: true } }),
     ]);
     const spentByCat: Record<string, number> = {};
     for (const r of monthExpenses) if (r.categoryId) spentByCat[r.categoryId] = r._sum.amount ?? 0;
     const budgets = budgetRows.map((b) => ({ name: b.category?.name ?? "Categoria", amount: b.amount, spent: b.categoryId ? spentByCat[b.categoryId] ?? 0 : 0 }));
-    const context = buildContext(analysis, goalRows, budgets, catRows);
+    const todayStr = now.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+    const todayISO = now.toISOString().slice(0, 10);
+    const context = `Hoje é ${todayStr} (ISO ${todayISO}).\n` + buildContext(analysis, goalRows, budgets, catRows, accountRows);
 
     const convo = history
       .map((m) => ({ role: m.role === "ai" ? "assistant" : m.role, content: String(m.content ?? "") }))

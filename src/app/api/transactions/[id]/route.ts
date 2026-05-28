@@ -31,9 +31,28 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   if (!transaction) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Only allow editing a safe set of fields
+  const data: Record<string, unknown> = {};
+  if (body.categoryId !== undefined) {
+    if (body.categoryId === null) {
+      data.categoryId = null;
+    } else {
+      const cat = await db.category.findFirst({
+        where: { id: body.categoryId, userId: session.user.id },
+        select: { id: true },
+      });
+      data.categoryId = cat ? body.categoryId : null;
+    }
+  }
+  if (typeof body.title === "string" && body.title.trim()) data.title = body.title.trim();
+  if (typeof body.amount === "number" && body.amount > 0) data.amount = body.amount;
+  if (body.type === "INCOME" || body.type === "EXPENSE") data.type = body.type;
+  if (body.status === "PENDING" || body.status === "COMPLETED") data.status = body.status;
+  if (typeof body.date === "string") data.date = new Date(body.date);
+
   const updated = await db.transaction.update({
     where: { id },
-    data: body,
+    data,
     include: { category: true },
   });
 

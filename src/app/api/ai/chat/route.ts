@@ -327,6 +327,31 @@ async function webSearch(query: string): Promise<string> {
   return "Não consegui pesquisar na internet agora. Posso responder com o que sei.";
 }
 
+// Plain conversational completion with NO tools — extremely reliable, used so the
+// assistant always talks naturally even when Groq's tool-calling hiccups.
+// Returns "" on failure so the caller can fall back to the rules engine.
+async function plainChat(system: string, convo: { role: string; content: string }[]): Promise<string> {
+  const apiKey = process.env.LLM_API_KEY;
+  if (!apiKey) return "";
+  try {
+    const res = await fetch(`${LLM_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        messages: [{ role: "system", content: system }, ...convo],
+        max_tokens: 1200,
+        temperature: 0.6,
+      }),
+    });
+    if (!res.ok) return "";
+    const d = await res.json();
+    return (d?.choices?.[0]?.message?.content ?? "").trim();
+  } catch {
+    return "";
+  }
+}
+
 type Cat = { id: string; name: string; type: string };
 
 function resolveCategory(name: string | undefined, type: "INCOME" | "EXPENSE", cats: Cat[]): Cat | null {
@@ -570,7 +595,8 @@ export async function POST(req: Request) {
       .slice(-12);
     if (!convo.length) convo.push({ role: "user", content: lastUser || "Olá" });
 
-    const messages: LLMMessage[] = [{ role: "system", content: `${SYSTEM_PROMPT}\n\n${context}` }, ...convo];
+    const systemContent = `${SYSTEM_PROMPT}\n\n${context}`;
+    const messages: LLMMessage[] = [{ role: "system", content: systemContent }, ...convo];
 
     let changed = false;
     let finalText = "";
@@ -608,7 +634,9 @@ export async function POST(req: Request) {
           break;
         }
         console.error("[ai/chat] provider", res.status, errText);
-        return NextResponse.json({ answer: answerQuestion(lastUser, analysis), engine: "rules-fallback", changed });
+        // Don't dump a canned summary — answer conversationally instead.
+        const conv = await plainChat(systemContent, convo);
+        return NextResponse.json({ answer: conv || answerQuestion(lastUser, analysis), engine: conv ? "llm-plain" : "rules-fallback", changed });
       }
       const data = await res.json();
       const msg = data?.choices?.[0]?.message as LLMMessage | undefined;
@@ -631,10 +659,20 @@ export async function POST(req: Request) {
       }
     }
 
-    if (!finalText) finalText = changed ? "Pronto, tarefa concluída!" : answerQuestion(lastUser, analysis);
+    if (!finalText) {
+      if (changed) finalText = "Pronto, tarefa concluída!";
+      else finalText = (await plainChat(systemContent, convo)) || answerQuestion(lastUser, analysis);
+    }
     return NextResponse.json({ answer: finalText, engine: "llm", changed });
   } catch (err) {
     console.error("[ai/chat]", err);
-    return NextResponse.json({ answer: answerQuestion(lastUser, analysis), engine: "rules-fallback", changed: false });
+    // Still try to talk naturally before resorting to the rules summary.
+    const convo = history
+      .map((m) => ({ role: m.role === "ai" ? "assistant" : m.role, content: String(m.content ?? "") }))
+      .filter((m) => (m.role === "user" || m.role === "assistant") && m.content.trim())
+      .slice(-12);
+    if (!convo.length) convo.push({ role: "user", content: lastUser || "Olá" });
+    const conv = await plainChat(SYSTEM_PROMPT, convo);
+    return NextResponse.json({ answer: conv || answerQuestion(lastUser, analysis), engine: conv ? "llm-plain" : "rules-fallback", changed: false });
   }
 }

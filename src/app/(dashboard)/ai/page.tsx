@@ -7,13 +7,14 @@ import {
   AlertTriangle, Bot, BrainCircuit, CheckCircle2,
   Lightbulb, LineChart, Send, Sparkles, TrendingDown,
   TrendingUp, Zap, Receipt, ListTodo, Repeat, Clock,
-  Flag, Circle, Sun, Mic, MicOff, Volume2, VolumeX, X, Loader2,
+  Flag, Circle, Sun, Mic, MicOff, Volume2, VolumeX, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useAutoRefresh, notifyDataChanged } from "@/lib/events";
+import { VoiceOrb } from "@/components/ai/voice-orb";
 
 const QUICK_QUESTIONS = [
   "O que tenho pra hoje?",
@@ -43,6 +44,14 @@ type Analysis = {
 // Voice assistant states for the immersive overlay
 type VoiceState = "idle" | "listening" | "transcribing" | "thinking" | "speaking";
 
+const STATE_ACCENT: Record<VoiceState, string> = {
+  idle: "#38bdf8",        // cyan
+  listening: "#a78bfa",   // violet
+  transcribing: "#fbbf24",// amber
+  thinking: "#60a5fa",    // blue
+  speaking: "#34d399",    // emerald
+};
+
 export default function AIPage() {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<Array<{ role: "user" | "ai"; content: string }>>([
@@ -63,9 +72,11 @@ export default function AIPage() {
   const [voiceEnabled, setVoiceEnabled] = useState(true); // TTS on/off
   const [liveText, setLiveText] = useState(""); // last transcription / spoken text
   const [voiceError, setVoiceError] = useState("");
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const voiceModeRef = useRef(false); // true while the voice overlay drives the conversation
 
   const loadInsights = useCallback(() => {
@@ -161,15 +172,32 @@ export default function AIPage() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
+
+      // Wire up the Web Audio analyser so the orb reacts to the real voice
+      try {
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const audioCtx = new AudioCtx();
+        audioCtxRef.current = audioCtx;
+        const source = audioCtx.createMediaStreamSource(stream);
+        const an = audioCtx.createAnalyser();
+        an.fftSize = 256;
+        an.smoothingTimeConstant = 0.8;
+        source.connect(an);
+        setAnalyser(an);
+      } catch { /* visualizer falls back to synthetic motion */ }
+
       const recorder = new MediaRecorder(stream);
       audioChunksRef.current = [];
 
       recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
 
       recorder.onstop = async () => {
-        // Release the mic
+        // Release the mic + audio analyser
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
+        setAnalyser(null);
+        audioCtxRef.current?.close().catch(() => {});
+        audioCtxRef.current = null;
 
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         if (blob.size < 1200) { setVoiceState("idle"); return; } // too short / silence
@@ -216,14 +244,21 @@ export default function AIPage() {
     setVoiceOpen(true);
     setVoiceState("idle");
     setVoiceError("");
-    setLiveText("");
-  }, []);
+    const hour = new Date().getHours();
+    const greet = hour < 12 ? "Bom dia, chefe." : hour < 18 ? "Boa tarde, chefe." : "Boa noite, chefe.";
+    const line = `${greet} Como posso ajudar?`;
+    setLiveText(line);
+    if (voiceEnabled) speak(line);
+  }, [voiceEnabled, speak]);
 
   const closeVoice = useCallback(() => {
     voiceModeRef.current = false;
     stopRecording();
     stopSpeaking();
     streamRef.current?.getTracks().forEach((t) => t.stop());
+    setAnalyser(null);
+    audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
     setVoiceOpen(false);
     setVoiceState("idle");
   }, [stopRecording, stopSpeaking]);
@@ -232,6 +267,7 @@ export default function AIPage() {
   useEffect(() => () => {
     stopSpeaking();
     streamRef.current?.getTracks().forEach((t) => t.stop());
+    audioCtxRef.current?.close().catch(() => {});
   }, [stopSpeaking]);
 
   const noData = analysis && !analysis.hasData;
@@ -526,110 +562,84 @@ export default function AIPage() {
         </div>
       </div>
 
-      {/* ===== Immersive Voice Overlay ===== */}
+      {/* ===== Immersive Voice Overlay (JARVIS-style) ===== */}
       <AnimatePresence>
         {voiceOpen && (
           <motion.div
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
           >
-            {/* Close + voice toggle */}
-            <div className="absolute top-5 right-5 flex items-center gap-3">
-              <button
-                onClick={() => setVoiceEnabled((v) => !v)}
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
-                title={voiceEnabled ? "Voz ligada" : "Voz desligada"}
-              >
-                {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-              </button>
-              <button
-                onClick={closeVoice}
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+            {/* Deep space backdrop */}
+            <div className="absolute inset-0 bg-[#03040a]" />
+            <div
+              className="absolute inset-0 opacity-[0.07]"
+              style={{
+                backgroundImage:
+                  "linear-gradient(rgba(120,160,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(120,160,255,0.5) 1px, transparent 1px)",
+                backgroundSize: "44px 44px",
+                maskImage: "radial-gradient(circle at center, black 30%, transparent 75%)",
+                WebkitMaskImage: "radial-gradient(circle at center, black 30%, transparent 75%)",
+              }}
+            />
+            {/* Vignette */}
+            <div className="absolute inset-0" style={{ background: "radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.85) 100%)" }} />
+
+            {/* Top bar */}
+            <div className="absolute top-0 inset-x-0 flex items-center justify-between px-6 py-5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_rgba(34,211,238,0.9)]" />
+                <span className="text-white/80 text-xs font-semibold tracking-[0.3em] uppercase">FinanceAI</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setVoiceEnabled((v) => !v)}
+                  className="w-10 h-10 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/80 transition-colors backdrop-blur-sm"
+                  title={voiceEnabled ? "Voz ligada" : "Voz desligada"}
+                >
+                  {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={closeVoice}
+                  className="w-10 h-10 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/80 transition-colors backdrop-blur-sm"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Animated orb */}
-            <div className="relative flex items-center justify-center mb-12" style={{ width: 280, height: 280 }}>
-              {/* Outer pulse rings */}
-              <AnimatePresence>
-                {(voiceState === "listening" || voiceState === "speaking") && (
-                  <>
-                    {[0, 1, 2].map((ring) => (
-                      <motion.div
-                        key={ring}
-                        className={cn(
-                          "absolute rounded-full",
-                          voiceState === "listening" ? "bg-violet-500/20" : "bg-emerald-500/20"
-                        )}
-                        style={{ width: 180, height: 180 }}
-                        initial={{ scale: 1, opacity: 0.5 }}
-                        animate={{ scale: 1.8, opacity: 0 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 2, repeat: Infinity, delay: ring * 0.6, ease: "easeOut" }}
-                      />
-                    ))}
-                  </>
-                )}
-              </AnimatePresence>
-
-              {/* Core orb */}
-              <motion.div
-                className={cn(
-                  "relative rounded-full flex items-center justify-center shadow-2xl",
-                  voiceState === "listening" && "bg-gradient-to-br from-violet-400 via-violet-600 to-fuchsia-600",
-                  voiceState === "speaking" && "bg-gradient-to-br from-emerald-400 via-emerald-600 to-teal-600",
-                  voiceState === "thinking" && "bg-gradient-to-br from-blue-400 via-indigo-600 to-violet-600",
-                  voiceState === "transcribing" && "bg-gradient-to-br from-amber-400 via-orange-600 to-rose-600",
-                  voiceState === "idle" && "bg-gradient-to-br from-violet-500 via-violet-700 to-fuchsia-700"
-                )}
-                style={{ width: 180, height: 180 }}
-                animate={
-                  voiceState === "listening"
-                    ? { scale: [1, 1.08, 1] }
-                    : voiceState === "speaking"
-                    ? { scale: [1, 1.05, 0.98, 1.05, 1] }
-                    : voiceState === "thinking" || voiceState === "transcribing"
-                    ? { rotate: 360 }
-                    : { scale: [1, 1.03, 1] }
-                }
-                transition={
-                  voiceState === "thinking" || voiceState === "transcribing"
-                    ? { duration: 3, repeat: Infinity, ease: "linear" }
-                    : { duration: voiceState === "listening" ? 1.2 : 2, repeat: Infinity, ease: "easeInOut" }
-                }
-              >
-                {voiceState === "thinking" || voiceState === "transcribing" ? (
-                  <Loader2 className="w-14 h-14 text-white animate-spin" />
-                ) : voiceState === "speaking" ? (
-                  <Volume2 className="w-14 h-14 text-white" />
-                ) : (
-                  <Sparkles className="w-14 h-14 text-white" />
-                )}
-              </motion.div>
+            {/* The reactive core */}
+            <div className="relative z-10 w-[min(78vw,440px)] h-[min(78vw,440px)] -mt-6">
+              <VoiceOrb state={voiceState} analyser={analyser} />
             </div>
 
-            {/* Status text */}
-            <div className="text-center px-6 max-w-md mb-10 min-h-[80px]">
-              <p className="text-white/60 text-sm mb-2">
-                {voiceState === "idle" && "Toque para falar"}
-                {voiceState === "listening" && "Estou ouvindo..."}
-                {voiceState === "transcribing" && "Entendendo o que você disse..."}
-                {voiceState === "thinking" && "Pensando..."}
-                {voiceState === "speaking" && "Respondendo..."}
-              </p>
+            {/* Status + live caption */}
+            <div className="relative z-10 text-center px-6 max-w-xl -mt-4 mb-10">
+              <motion.p
+                key={voiceState}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-[11px] font-semibold tracking-[0.35em] uppercase mb-4"
+                style={{ color: STATE_ACCENT[voiceState] }}
+              >
+                {voiceState === "idle" && "Aguardando"}
+                {voiceState === "listening" && "● Ouvindo"}
+                {voiceState === "transcribing" && "Processando áudio"}
+                {voiceState === "thinking" && "Analisando"}
+                {voiceState === "speaking" && "Respondendo"}
+              </motion.p>
               {voiceError ? (
                 <p className="text-red-400 text-sm">{voiceError}</p>
               ) : (
                 liveText && (
                   <motion.p
                     key={liveText}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-white text-lg font-medium leading-relaxed"
+                    initial={{ opacity: 0, y: 10, filter: "blur(6px)" }}
+                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                    transition={{ duration: 0.5 }}
+                    className="text-white text-xl sm:text-2xl font-light leading-relaxed tracking-wide"
                   >
                     {liveText}
                   </motion.p>
@@ -637,30 +647,43 @@ export default function AIPage() {
               )}
             </div>
 
-            {/* Mic button */}
-            <button
-              onClick={toggleMic}
-              disabled={voiceState === "transcribing" || voiceState === "thinking"}
-              className={cn(
-                "w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-xl disabled:opacity-50",
-                voiceState === "listening"
-                  ? "bg-red-500 hover:bg-red-600 scale-110"
+            {/* Mic control */}
+            <div className="relative z-10 flex flex-col items-center gap-3">
+              <button
+                onClick={toggleMic}
+                disabled={voiceState === "transcribing" || voiceState === "thinking"}
+                className={cn(
+                  "relative w-[72px] h-[72px] rounded-full flex items-center justify-center transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed group",
+                  "border backdrop-blur-md",
+                  voiceState === "listening"
+                    ? "border-fuchsia-400/60 bg-fuchsia-500/20"
+                    : voiceState === "speaking"
+                    ? "border-emerald-400/50 bg-emerald-500/15"
+                    : "border-cyan-400/40 bg-cyan-500/10 hover:bg-cyan-500/20"
+                )}
+                style={{ boxShadow: `0 0 30px ${STATE_ACCENT[voiceState]}55, inset 0 0 20px ${STATE_ACCENT[voiceState]}22` }}
+              >
+                {voiceState === "listening" && (
+                  <span className="absolute inset-0 rounded-full border border-fuchsia-400/40 animate-ping" />
+                )}
+                {voiceState === "listening" ? (
+                  <MicOff className="w-7 h-7 text-white" />
+                ) : voiceState === "speaking" ? (
+                  <VolumeX className="w-7 h-7 text-white" />
+                ) : (
+                  <Mic className="w-7 h-7 text-white" />
+                )}
+              </button>
+              <p className="text-white/40 text-xs tracking-wide">
+                {voiceState === "listening"
+                  ? "Toque para enviar"
                   : voiceState === "speaking"
-                  ? "bg-white/20 hover:bg-white/30"
-                  : "bg-violet-600 hover:bg-violet-700"
-              )}
-            >
-              {voiceState === "listening" ? (
-                <MicOff className="w-8 h-8 text-white" />
-              ) : voiceState === "speaking" ? (
-                <VolumeX className="w-8 h-8 text-white" />
-              ) : (
-                <Mic className="w-8 h-8 text-white" />
-              )}
-            </button>
-            <p className="text-white/40 text-xs mt-4">
-              {voiceState === "listening" ? "Toque para enviar" : voiceState === "speaking" ? "Toque para interromper" : "Toque no microfone e fale"}
-            </p>
+                  ? "Toque para interromper"
+                  : voiceState === "transcribing" || voiceState === "thinking"
+                  ? "Só um instante..."
+                  : "Toque e fale comigo"}
+              </p>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

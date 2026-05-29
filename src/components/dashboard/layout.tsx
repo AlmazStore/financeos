@@ -13,7 +13,7 @@ import {
   BarChart3, Bot, Building2, CreditCard,
   LayoutDashboard, LogOut, Menu, Moon, Plus,
   Settings, Sun, TrendingUp, User, Wallet, X, Zap, BookOpen, Tag,
-  HeartPulse, PiggyBank, Repeat, Trophy, type LucideIcon,
+  HeartPulse, PiggyBank, Repeat, Trophy, ListTodo, type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,7 @@ const NAV_ITEMS: NavSection[] = [
   {
     section: "Dia a dia",
     items: [
+      { href: "/tasks", icon: ListTodo, label: "Tarefas & Rotinas" },
       { href: "/transactions", icon: CreditCard, label: "Transações" },
       { href: "/cashflow", icon: Zap, label: "Contas a pagar/receber" },
       { href: "/recurring", icon: Repeat, label: "Recorrentes" },

@@ -24,7 +24,7 @@ type ToolCall = { id: string; type?: string; function: { name: string; arguments
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type LLMMessage = { role: string; content: string | null; tool_calls?: ToolCall[]; tool_call_id?: string; name?: string };
 
-const SYSTEM_PROMPT = `Você é a "FinanceAI", consultora financeira pessoal do FinanceOS — app brasileiro de controle financeiro. Conversa em português do Brasil, tom acolhedor, direto e prático.
+const SYSTEM_PROMPT = `Você é a "FinanceAI", assistente pessoal inteligente do FinanceOS — app brasileiro de controle financeiro e produtividade. Conversa em português do Brasil, tom acolhedor, direto e prático.
 
 Você pode CONVERSAR e também EXECUTAR TAREFAS para o cliente usando as ferramentas disponíveis:
 - registrar transações (entradas/saídas)
@@ -32,17 +32,23 @@ Você pode CONVERSAR e também EXECUTAR TAREFAS para o cliente usando as ferrame
 - definir orçamento mensal por categoria
 - criar lançamentos recorrentes (salário, aluguel, assinaturas)
 - criar categorias novas
-- classificar/recategorizar transações existentes por palavra-chave (ex: "põe todos os pix do Facebook na categoria Meta Ads")
-- consultar/buscar as transações reais (search_transactions) para responder perguntas sobre lançamentos específicos, pessoas, estabelecimentos ou períodos
+- classificar/recategorizar transações existentes por palavra-chave
+- consultar/buscar as transações reais para responder perguntas específicas
+- criar tarefas (to-dos) com prioridade, data de vencimento e lembrete
+- listar tarefas pendentes do dia ou por período
+- marcar tarefas como concluídas
+- criar rotinas recorrentes (hábitos, tarefas que se repetem)
+- listar rotinas ativas
 
 Regras:
-- Quando o cliente pedir uma ação, USE a ferramenta apropriada em vez de só explicar. Nunca responda com um resumo genérico quando a pessoa pediu uma tarefa.
-- Para pedidos compostos, encadeie ferramentas: ex. "crie a categoria Meta Ads e jogue os pix do facebook nela" = chame create_category e depois categorize_transactions.
-- Para perguntas sobre transações específicas (ex: "pix para Evelyn na sexta", "quanto gastei no Uber"), USE search_transactions e responda com base no resultado. Resolva datas relativas ("sexta", "ontem", "este mês") usando a data de hoje informada no contexto.
-- Após executar, confirme em 1-2 frases o que foi feito (quantidade afetada, valores).
-- Se faltar uma informação essencial (ex: valor), pergunte antes de executar.
-- Use os dados financeiros reais do contexto. Nunca invente números.
-- Seja concisa. Cite valores em reais. Foque em finanças pessoais.
+- Quando o cliente pedir uma ação, USE a ferramenta apropriada em vez de só explicar.
+- Para pedidos compostos, encadeie ferramentas.
+- Para perguntas sobre transações específicas, USE search_transactions.
+- Ao criar tarefa, extraia título, prioridade e data do que o usuário disser naturalmente.
+- Após executar, confirme em 1-2 frases o que foi feito.
+- Se faltar informação essencial (ex: valor de transação), pergunte antes de executar. Para tarefas, prioridade e data são opcionais.
+- Use os dados reais do contexto. Nunca invente números.
+- Seja concisa. Cite valores em reais.
 - Não prometa rentabilidade garantida.`;
 
 function buildContext(
@@ -50,19 +56,32 @@ function buildContext(
   goals: { title: string; targetAmount: number; currentAmount: number; deadline: Date | null }[],
   budgets: { name: string; amount: number; spent: number }[],
   categories: { name: string; type: string }[],
-  accounts: { name: string; balance: number }[]
+  accounts: { name: string; balance: number }[],
+  tasks: { title: string; priority: string; dueDate: Date | null; status: string }[],
+  routines: { title: string; frequency: string; nextDueAt: Date | null }[]
 ): string {
   const s = a.summary;
   const lines: string[] = [];
-  lines.push("CONTEXTO — DADOS FINANCEIROS REAIS (mês atual):");
+  lines.push("CONTEXTO — DADOS REAIS DO USUÁRIO:");
   if (accounts.length) lines.push("- Contas: " + accounts.map((ac) => `${ac.name} ${BRL(ac.balance)}`).join(", "));
-  lines.push(`- Entradas: ${BRL(s.income)} | Saídas: ${BRL(s.expenses)} | Sobrou: ${BRL(s.savings)} (poupança ${s.savingsRate.toFixed(0)}%)`);
-  lines.push(`- Saldo total: ${BRL(s.totalBalance)} | Média mensal: economiza ${BRL(s.avgMonthlySavings)}`);
+  lines.push(`- Finanças do mês: Entradas ${BRL(s.income)} | Saídas ${BRL(s.expenses)} | Sobrou ${BRL(s.savings)} (${s.savingsRate.toFixed(0)}%)`);
+  lines.push(`- Saldo total: ${BRL(s.totalBalance)}`);
   if (a.topCategories.length) lines.push("- Maiores gastos: " + a.topCategories.slice(0, 5).map((c) => `${c.name} ${BRL(c.amount)} (${c.pct}%)`).join(", "));
   if (a.pending.count > 0) lines.push(`- Pendentes: ${a.pending.count} (pagar ${BRL(a.pending.payable)}, receber ${BRL(a.pending.receivable)})`);
   if (goals.length) lines.push("- Metas: " + goals.map((g) => `${g.title} (${BRL(g.currentAmount)}/${BRL(g.targetAmount)})`).join("; "));
   if (budgets.length) lines.push("- Orçamentos: " + budgets.map((b) => `${b.name} ${BRL(b.spent)}/${BRL(b.amount)}`).join("; "));
   lines.push("- Categorias disponíveis: " + categories.map((c) => c.name).join(", "));
+  const pendingTasks = tasks.filter((t) => t.status !== "COMPLETED" && t.status !== "CANCELLED");
+  if (pendingTasks.length) {
+    const freqLabel: Record<string, string> = { DAILY: "diária", WEEKLY: "semanal", BIWEEKLY: "quinzenal", MONTHLY: "mensal" };
+    lines.push("- Tarefas pendentes: " + pendingTasks.map((t) => `"${t.title}" [${t.priority}]${t.dueDate ? ` vence ${new Date(t.dueDate).toLocaleDateString("pt-BR")}` : ""}`).join("; "));
+    if (routines.length) lines.push("- Rotinas ativas: " + routines.map((r) => `"${r.title}" (${freqLabel[r.frequency] ?? r.frequency})`).join(", "));
+  } else {
+    if (routines.length) {
+      const freqLabel: Record<string, string> = { DAILY: "diária", WEEKLY: "semanal", BIWEEKLY: "quinzenal", MONTHLY: "mensal" };
+      lines.push("- Rotinas ativas: " + routines.map((r) => `"${r.title}" (${freqLabel[r.frequency] ?? r.frequency})`).join(", "));
+    }
+  }
   if (!a.hasData) lines.push("- ATENÇÃO: poucas transações registradas. Incentive importar extrato ou adicionar lançamentos.");
   return lines.join("\n");
 }
@@ -192,6 +211,77 @@ const TOOLS = [
         },
         required: ["match", "category"],
       },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_task",
+      description: "Cria uma tarefa (to-do) para o usuário, com prioridade e data de vencimento opcionais.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título da tarefa" },
+          description: { type: "string", description: "Detalhes adicionais (opcional)" },
+          priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "URGENT"], description: "Prioridade. Padrão: MEDIUM" },
+          due_date: { type: "string", description: "Data de vencimento YYYY-MM-DD (opcional)" },
+        },
+        required: ["title"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_tasks",
+      description: "Lista as tarefas pendentes do usuário. Use para responder 'quais minhas tarefas', 'o que tenho pra hoje', etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          today_only: { type: "boolean", description: "Se true, traz só as tarefas de hoje (com vencimento hoje ou atrasadas). Padrão: false" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "complete_task",
+      description: "Marca uma tarefa como concluída (pelo título ou parte dele).",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título ou parte do título da tarefa a concluir" },
+        },
+        required: ["title"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_routine",
+      description: "Cria uma rotina recorrente (hábito ou tarefa repetitiva), como 'conferir emails todo dia' ou 'reunião semanal'.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Nome da rotina" },
+          description: { type: "string", description: "Detalhes (opcional)" },
+          frequency: { type: "string", enum: ["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY"], description: "Frequência: DAILY=diário, WEEKLY=semanal, BIWEEKLY=quinzenal, MONTHLY=mensal" },
+          day_of_week: { type: "number", description: "Dia da semana para WEEKLY (0=dom, 1=seg... 6=sáb). Opcional." },
+          day_of_month: { type: "number", description: "Dia do mês para MONTHLY (1-31). Opcional." },
+        },
+        required: ["title", "frequency"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_routines",
+      description: "Lista as rotinas ativas do usuário.",
+      parameters: { type: "object", properties: {}, required: [] },
     },
   },
 ];
@@ -324,6 +414,54 @@ async function executeTool(name: string, args: any, userId: string, cats: Cat[])
       return { result: `OK: ${result.count} transação(ões) com "${match}" movida(s) para "${cat.name}". A partir de agora, novas importações com "${match}" entram nessa categoria automaticamente.`, changed: true };
     }
 
+    if (name === "create_task") {
+      const title = String(args.title ?? "").trim();
+      if (!title) return { result: "Erro: informe o título da tarefa.", changed: false };
+      const priority = ["LOW", "MEDIUM", "HIGH", "URGENT"].includes(args.priority) ? args.priority : "MEDIUM";
+      const dueDate = args.due_date && /^\d{4}-\d{2}-\d{2}/.test(args.due_date) ? new Date(args.due_date) : null;
+      await db.task.create({ data: { title, description: args.description ? String(args.description) : null, priority, dueDate, userId } });
+      return { result: `OK: tarefa "${title}" criada${dueDate ? ` (vence em ${dueDate.toLocaleDateString("pt-BR")})` : ""}, prioridade ${priority}.`, changed: true };
+    }
+
+    if (name === "list_tasks") {
+      const where: Record<string, unknown> = { userId, status: { in: ["PENDING", "IN_PROGRESS"] } };
+      if (args.today_only) {
+        const end = new Date(); end.setHours(23, 59, 59, 999);
+        where.dueDate = { lte: end };
+      }
+      const tasks = await db.task.findMany({ where, orderBy: [{ dueDate: "asc" }, { priority: "desc" }], take: 20 });
+      if (!tasks.length) return { result: "Nenhuma tarefa pendente encontrada.", changed: false };
+      const lines = tasks.map((t) => `• [${t.priority}] ${t.title}${t.dueDate ? ` — vence ${new Date(t.dueDate).toLocaleDateString("pt-BR")}` : ""}`);
+      return { result: `${tasks.length} tarefa(s) pendente(s):\n${lines.join("\n")}`, changed: false };
+    }
+
+    if (name === "complete_task") {
+      const title = String(args.title ?? "").trim();
+      if (!title) return { result: "Erro: informe o título da tarefa.", changed: false };
+      const task = await db.task.findFirst({ where: { userId, title: { contains: title, mode: "insensitive" }, status: { in: ["PENDING", "IN_PROGRESS"] } } });
+      if (!task) return { result: `Não encontrei a tarefa "${title}". Verifique o nome.`, changed: false };
+      await db.task.update({ where: { id: task.id }, data: { status: "COMPLETED", completedAt: new Date() } });
+      return { result: `OK: tarefa "${task.title}" marcada como concluída! ✅`, changed: true };
+    }
+
+    if (name === "create_routine") {
+      const title = String(args.title ?? "").trim();
+      if (!title) return { result: "Erro: informe o título da rotina.", changed: false };
+      const freqs = ["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY"];
+      const frequency = freqs.includes(args.frequency) ? args.frequency : "DAILY";
+      const freqLabel: Record<string, string> = { DAILY: "diária", WEEKLY: "semanal", BIWEEKLY: "quinzenal", MONTHLY: "mensal" };
+      await db.routine.create({ data: { title, description: args.description ? String(args.description) : null, frequency, dayOfWeek: args.day_of_week ?? null, dayOfMonth: args.day_of_month ?? null, userId } });
+      return { result: `OK: rotina "${title}" criada com frequência ${freqLabel[frequency]}.`, changed: true };
+    }
+
+    if (name === "list_routines") {
+      const routines = await db.routine.findMany({ where: { userId, isActive: true }, orderBy: { createdAt: "asc" } });
+      if (!routines.length) return { result: "Nenhuma rotina ativa encontrada.", changed: false };
+      const freqLabel: Record<string, string> = { DAILY: "diária", WEEKLY: "semanal", BIWEEKLY: "quinzenal", MONTHLY: "mensal" };
+      const lines = routines.map((r) => `• ${r.title} (${freqLabel[r.frequency] ?? r.frequency})${r.nextDueAt ? ` — próxima: ${new Date(r.nextDueAt).toLocaleDateString("pt-BR")}` : ""}`);
+      return { result: `${routines.length} rotina(s) ativa(s):\n${lines.join("\n")}`, changed: false };
+    }
+
     return { result: `Erro: ferramenta desconhecida (${name}).`, changed: false };
   } catch (e) {
     console.error("[ai/chat tool]", name, e);
@@ -363,19 +501,22 @@ export async function POST(req: Request) {
 
   try {
     const now = new Date();
-    const [goalRows, budgetRows, monthExpenses, catRows, accountRows] = await Promise.all([
+    const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+    const [goalRows, budgetRows, monthExpenses, catRows, accountRows, taskRows, routineRows] = await Promise.all([
       db.goal.findMany({ where: { userId, isCompleted: false }, take: 8, select: { title: true, targetAmount: true, currentAmount: true, deadline: true } }),
       db.budget.findMany({ where: { userId }, include: { category: { select: { name: true } } } }),
       db.transaction.groupBy({ by: ["categoryId"], where: { userId, type: "EXPENSE", status: "COMPLETED", date: { gte: startOfMonth(now), lte: endOfMonth(now) } }, _sum: { amount: true } }),
       db.category.findMany({ where: { userId }, select: { id: true, name: true, type: true } }),
       db.financialAccount.findMany({ where: { userId, isActive: true }, select: { name: true, balance: true } }),
+      db.task.findMany({ where: { userId, status: { in: ["PENDING", "IN_PROGRESS"] } }, orderBy: [{ dueDate: "asc" }, { priority: "desc" }], take: 20, select: { title: true, priority: true, dueDate: true, status: true } }),
+      db.routine.findMany({ where: { userId, isActive: true }, orderBy: { createdAt: "asc" }, take: 10, select: { title: true, frequency: true, nextDueAt: true } }),
     ]);
     const spentByCat: Record<string, number> = {};
     for (const r of monthExpenses) if (r.categoryId) spentByCat[r.categoryId] = r._sum.amount ?? 0;
     const budgets = budgetRows.map((b) => ({ name: b.category?.name ?? "Categoria", amount: b.amount, spent: b.categoryId ? spentByCat[b.categoryId] ?? 0 : 0 }));
     const todayStr = now.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
     const todayISO = now.toISOString().slice(0, 10);
-    const context = `Hoje é ${todayStr} (ISO ${todayISO}).\n` + buildContext(analysis, goalRows, budgets, catRows, accountRows);
+    const context = `Hoje é ${todayStr} (ISO ${todayISO}).\n` + buildContext(analysis, goalRows, budgets, catRows, accountRows, taskRows, routineRows);
 
     const convo = history
       .map((m) => ({ role: m.role === "ai" ? "assistant" : m.role, content: String(m.content ?? "") }))

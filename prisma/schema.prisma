@@ -27,6 +27,8 @@ model User {
   budgets          Budget[]
   notifications    Notification[]
   onboardingProfile OnboardingProfile?
+  tasks            Task[]
+  routines         Routine[]
 
   @@map("users")
 }
@@ -399,4 +401,65 @@ enum NotificationType {
   REMINDER
   ACHIEVEMENT
   INFO
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus   @default(PENDING)
+  dueDate     DateTime?
+  reminderAt  DateTime?
+  completedAt DateTime?
+  userId      String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("tasks")
+}
+
+model Routine {
+  id          String           @id @default(cuid())
+  title       String
+  description String?
+  frequency   RoutineFrequency
+  dayOfWeek   Int?
+  dayOfMonth  Int?
+  time        String?
+  isActive    Boolean          @default(true)
+  lastDoneAt  DateTime?
+  nextDueAt   DateTime?
+  userId      String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@map("routines")
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum RoutineFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
 }

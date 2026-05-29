@@ -77,6 +77,7 @@ export default function AIPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null); // neural TTS playback
   const voiceModeRef = useRef(false); // true while the voice overlay drives the conversation
 
   const loadInsights = useCallback(() => {
@@ -104,15 +105,14 @@ export default function AIPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chat, loading]);
 
-  // ---- Text-to-speech (browser SpeechSynthesis) ----
-  const speak = useCallback((text: string, onEnd?: () => void) => {
+  // ---- Browser fallback TTS (used only if neural voice is unavailable) ----
+  const browserSpeak = useCallback((text: string, onEnd?: () => void) => {
     if (typeof window === "undefined" || !window.speechSynthesis) { onEnd?.(); return; }
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = "pt-BR";
-    utter.rate = 1.02;
-    utter.pitch = 1.0;
-    // Prefer a Brazilian Portuguese voice if available
+    utter.rate = 1.0;
+    utter.pitch = 0.9;
     const voices = window.speechSynthesis.getVoices();
     const ptVoice = voices.find((v) => v.lang === "pt-BR") || voices.find((v) => v.lang.startsWith("pt"));
     if (ptVoice) utter.voice = ptVoice;
@@ -122,8 +122,36 @@ export default function AIPage() {
   }, []);
 
   const stopSpeaking = useCallback(() => {
+    if (audioElRef.current) {
+      audioElRef.current.pause();
+      audioElRef.current.src = "";
+      audioElRef.current = null;
+    }
     if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
   }, []);
+
+  // ---- Neural TTS (ElevenLabs) with graceful fallback to browser voice ----
+  const speak = useCallback(async (text: string, onEnd?: () => void) => {
+    stopSpeaking();
+    try {
+      const res = await fetch("/api/ai/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (res.ok && res.headers.get("content-type")?.includes("audio")) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audioElRef.current = audio;
+        audio.onended = () => { URL.revokeObjectURL(url); onEnd?.(); };
+        audio.onerror = () => { URL.revokeObjectURL(url); onEnd?.(); };
+        await audio.play();
+        return;
+      }
+    } catch { /* fall through to browser voice */ }
+    browserSpeak(text, onEnd);
+  }, [browserSpeak, stopSpeaking]);
 
   // ---- Core: send a message to the assistant ----
   // fromVoice = true makes the assistant speak the answer back and (optionally) re-listen

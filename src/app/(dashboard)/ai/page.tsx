@@ -639,7 +639,7 @@ export default function AIPage() {
             </div>
 
             {/* The reactive core */}
-            <div className="relative z-10 w-[min(78vw,440px)] h-[min(78vw,440px)] -mt-6">
+            <div className="relative z-10 w-[min(86vw,540px)] h-[min(86vw,540px)] -mt-8">
               <VoiceOrb state={voiceState} analyser={analyser} />
             </div>
 

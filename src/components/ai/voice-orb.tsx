@@ -5,31 +5,22 @@ import { useEffect, useRef } from "react";
 export type VoiceState = "idle" | "listening" | "transcribing" | "thinking" | "speaking";
 
 type RGB = [number, number, number];
-const THEMES: Record<VoiceState, { primary: RGB; secondary: RGB }> = {
-  idle: { primary: [180, 210, 255], secondary: [90, 140, 255] }, // soft white-blue
-  listening: { primary: [200, 180, 255], secondary: [160, 120, 255] }, // violet
-  transcribing: { primary: [255, 220, 150], secondary: [255, 170, 80] }, // amber
-  thinking: { primary: [160, 200, 255], secondary: [110, 150, 255] }, // blue
-  speaking: { primary: [150, 255, 220], secondary: [80, 220, 200] }, // teal
+const THEMES: Record<VoiceState, RGB> = {
+  idle: [120, 180, 255], // blue-white
+  listening: [180, 150, 255], // violet
+  transcribing: [255, 200, 120], // amber
+  thinking: [130, 180, 255], // blue
+  speaking: [120, 245, 210], // teal
 };
 
-// Each particle streams outward from the center, fades, then respawns — a
-// perpetual starburst like the reference. z gives a parallax/depth feel.
-type Particle = {
-  angle: number;
-  radius: number;
-  speed: number;
-  size: number;
-  z: number;
-  seed: number;
-};
+type Pt = { x: number; y: number; z: number; size: number; seed: number };
 
-const COUNT = 520;
+const N = 1300;
 
 /**
- * Cinematic particle-burst voice visualizer. Hundreds of points radiate from a
- * glowing core, reacting in real time to the mic analyser while listening and
- * pulsing procedurally in the other states.
+ * Modern 3D particle-sphere voice visualizer. A dense cloud of points rotates
+ * in 3D with perspective, forming an elegant starburst that breathes with the
+ * voice (real mic analyser while listening, procedural otherwise).
  */
 export function VoiceOrb({ state, analyser }: { state: VoiceState; analyser: AnalyserNode | null }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -60,31 +51,36 @@ export function VoiceOrb({ state, analyser }: { state: VoiceState; analyser: Ana
     const ro = new ResizeObserver(resize);
     ro.observe(canvas);
 
-    const rand = (a: number, b: number) => a + Math.random() * (b - a);
-    const mk = (full: boolean): Particle => ({
-      angle: Math.random() * Math.PI * 2,
-      radius: full ? Math.random() : rand(0, 0.06),
-      speed: rand(0.0016, 0.006),
-      size: rand(0.6, 2.4),
-      z: Math.random(),
-      seed: Math.random() * Math.PI * 2,
-    });
-    const particles: Particle[] = Array.from({ length: COUNT }, () => mk(true));
+    // Build a uniform-in-volume sphere of points (cbrt → uniform density)
+    const pts: Pt[] = [];
+    for (let i = 0; i < N; i++) {
+      const u = Math.random() * 2 - 1;
+      const theta = Math.random() * Math.PI * 2;
+      const s = Math.sqrt(1 - u * u);
+      const r = Math.cbrt(Math.random());
+      pts.push({
+        x: s * Math.cos(theta) * r,
+        y: s * Math.sin(theta) * r,
+        z: u * r,
+        size: 0.5 + Math.random() * 1.9,
+        seed: Math.random() * Math.PI * 2,
+      });
+    }
 
     const freq = new Uint8Array(128);
     let smoothAmp = 0;
+    let angY = 0, angX = 0;
     const lerp = (a: number, b: number, n: number) => a + (b - a) * n;
-    const rgba = (c: RGB, a: number) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
     const draw = () => {
       t += 1;
       const st = stateRef.current;
       const an = analyserRef.current;
-      const theme = THEMES[st];
+      const col = THEMES[st];
       const cx = w / 2, cy = h / 2;
-      const maxR = Math.min(w, h) * 0.52;
+      const maxR = Math.min(w, h) * 0.42;
 
-      // ---- amplitude ----
+      // amplitude
       let amp = 0;
       if (an && st === "listening") {
         an.getByteFrequencyData(freq);
@@ -93,65 +89,65 @@ export function VoiceOrb({ state, analyser }: { state: VoiceState; analyser: Ana
         amp = sum / 64 / 255;
       } else {
         amp =
-          st === "speaking" ? 0.55 + Math.sin(t * 0.16) * 0.22 + Math.sin(t * 0.05) * 0.12 :
-          st === "thinking" || st === "transcribing" ? 0.34 + Math.sin(t * 0.1) * 0.1 :
-          0.16 + Math.sin(t * 0.035) * 0.06; // idle breathing
+          st === "speaking" ? 0.5 + Math.sin(t * 0.16) * 0.2 + Math.sin(t * 0.05) * 0.12 :
+          st === "thinking" || st === "transcribing" ? 0.3 + Math.sin(t * 0.1) * 0.1 :
+          0.14 + Math.sin(t * 0.03) * 0.05;
       }
-      smoothAmp = lerp(smoothAmp, Math.max(0, amp), 0.16);
-      const drive = 0.5 + smoothAmp * 2.2; // outward velocity multiplier
+      smoothAmp = lerp(smoothAmp, Math.max(0, amp), 0.14);
 
-      // fade trails for motion blur instead of hard clear
-      ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = "rgba(3,4,10,0.32)";
-      ctx.fillRect(0, 0, w, h);
-
-      // ---- particle burst (additive) ----
+      // crisp clear (lets the grid/vignette behind show through)
+      ctx.clearRect(0, 0, w, h);
       ctx.globalCompositeOperation = "lighter";
-      for (const p of particles) {
-        p.radius += p.speed * drive * (0.4 + p.z);
-        p.angle += (p.seed > Math.PI ? 1 : -1) * 0.0006 * (1 + smoothAmp); // gentle swirl
-        if (p.radius >= 1) Object.assign(p, mk(false));
 
-        const r = p.radius * maxR;
-        const x = cx + Math.cos(p.angle) * r;
-        const y = cy + Math.sin(p.angle) * r;
+      // rotation
+      angY += 0.0022 + smoothAmp * 0.012;
+      angX = Math.sin(t * 0.004) * 0.35;
+      const cosY = Math.cos(angY), sinY = Math.sin(angY);
+      const cosX = Math.cos(angX), sinX = Math.sin(angX);
 
-        // brightness: fade in from core, fade out at edge; twinkle
-        const edge = 1 - p.radius;
-        const core = Math.min(1, p.radius * 6);
-        const twinkle = 0.7 + Math.sin(t * 0.08 + p.seed) * 0.3;
-        const a = Math.max(0, edge * core * twinkle * (0.5 + p.z * 0.7) * (0.6 + smoothAmp * 0.8));
-        const size = p.size * (0.6 + p.z) * (1 + smoothAmp * 0.5);
+      const radiusPx = maxR * (0.86 + smoothAmp * 0.3);
+      const zCam = 2.4;
+      const scaleNear = zCam / (zCam - 0.9);
+      const scaleFar = zCam / (zCam + 0.9);
+      const scaleRange = scaleNear - scaleFar;
 
-        const mix = p.z;
+      for (const p of pts) {
+        // rotate Y then X
+        const x1 = p.x * cosY + p.z * sinY;
+        const z1 = -p.x * sinY + p.z * cosY;
+        const y2 = p.y * cosX - z1 * sinX;
+        const z2 = p.y * sinX + z1 * cosX;
+
+        const scale = zCam / (zCam - z2 * 0.9);
+        const px = cx + x1 * radiusPx * scale;
+        const py = cy + y2 * radiusPx * scale;
+
+        const norm = (scale - scaleFar) / scaleRange; // 0 far → 1 near
+        const twinkle = 0.72 + Math.sin(t * 0.07 + p.seed) * 0.28;
+        const a = Math.max(0, (0.1 + norm * 0.9) * twinkle * (0.55 + smoothAmp * 0.7));
+        const size = p.size * scale * (0.8 + smoothAmp * 0.5);
+
+        // near points whiter, far points take the state color
         const c: RGB = [
-          Math.round(lerp(theme.secondary[0], theme.primary[0], mix)),
-          Math.round(lerp(theme.secondary[1], theme.primary[1], mix)),
-          Math.round(lerp(theme.secondary[2], theme.primary[2], mix)),
+          Math.round(lerp(col[0], 255, norm)),
+          Math.round(lerp(col[1], 255, norm)),
+          Math.round(lerp(col[2], 255, norm)),
         ];
         ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fillStyle = rgba(c, a);
+        ctx.arc(px, py, size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${a})`;
         ctx.fill();
       }
 
-      // ---- glowing core ----
-      const pulse = 1 + smoothAmp * 0.6;
-      const coreR = maxR * 0.17 * pulse;
-      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR * 2.4);
-      g.addColorStop(0, rgba([255, 255, 255], 0.95));
-      g.addColorStop(0.22, rgba(theme.primary, 0.7));
-      g.addColorStop(0.55, rgba(theme.secondary, 0.22));
+      // compact glowing core
+      const coreR = maxR * (0.13 + smoothAmp * 0.06);
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+      g.addColorStop(0, "rgba(255,255,255,0.9)");
+      g.addColorStop(0.4, `rgba(${col[0]},${col[1]},${col[2]},0.45)`);
       g.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(cx, cy, coreR * 2.4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // bright center
-      ctx.beginPath();
-      ctx.arc(cx, cy, coreR * 0.42, 0, Math.PI * 2);
-      ctx.fillStyle = rgba([255, 255, 255], 0.92);
+      ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.globalCompositeOperation = "source-over";

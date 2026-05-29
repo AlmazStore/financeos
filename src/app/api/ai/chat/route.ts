@@ -17,6 +17,15 @@ import { normalizeMerchant } from "@/lib/category-rules";
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL || "https://api.groq.com/openai/v1";
 const LLM_MODEL = process.env.LLM_MODEL || "llama-3.3-70b-versatile";
+// Groq's agentic "compound" systems have built-in web search — used by the
+// web_search tool. Tries the configured one first, then known fallbacks.
+const SEARCH_MODELS = [
+  process.env.LLM_SEARCH_MODEL,
+  "groq/compound-mini",
+  "groq/compound",
+  "compound-beta-mini",
+  "compound-beta",
+].filter(Boolean) as string[];
 const BRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 type ClientMsg = { role: "user" | "ai" | "assistant" | "system"; content: string };
@@ -24,32 +33,22 @@ type ToolCall = { id: string; type?: string; function: { name: string; arguments
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type LLMMessage = { role: string; content: string | null; tool_calls?: ToolCall[]; tool_call_id?: string; name?: string };
 
-const SYSTEM_PROMPT = `Você é a "FinanceAI", assistente pessoal inteligente do FinanceOS — app brasileiro de controle financeiro e produtividade. Conversa em português do Brasil, tom acolhedor, direto e prático.
+const SYSTEM_PROMPT = `Você é a "FinanceAI", a assistente pessoal inteligente dentro do FinanceOS (app brasileiro de finanças e produtividade). Você é uma IA completa e conversacional, como o ChatGPT: pode responder QUALQUER pergunta, explicar conceitos, dar conselhos, dicas, brainstorming, ajudar com textos e ideias. Sua ESPECIALIDADE e foco é finanças pessoais e o uso do app, mas você NUNCA se recusa a ajudar com outros assuntos.
 
-Você pode CONVERSAR e também EXECUTAR TAREFAS para o cliente usando as ferramentas disponíveis:
-- registrar transações (entradas/saídas)
-- criar metas e adicionar valores a metas
-- definir orçamento mensal por categoria
-- criar lançamentos recorrentes (salário, aluguel, assinaturas)
-- criar categorias novas
-- classificar/recategorizar transações existentes por palavra-chave
-- consultar/buscar as transações reais para responder perguntas específicas
-- criar tarefas (to-dos) com prioridade, data de vencimento e lembrete
-- listar tarefas pendentes do dia ou por período
-- marcar tarefas como concluídas
-- criar rotinas recorrentes (hábitos, tarefas que se repetem)
-- listar rotinas ativas
+SUAS CAPACIDADES:
+1. Conversar livremente e dar respostas úteis, completas e específicas sobre qualquer tema.
+2. PESQUISAR NA INTERNET (ferramenta web_search) para informações ATUAIS: cotações (dólar, euro, bitcoin), taxa Selic/CDI, inflação, preços, notícias, novos investimentos, comparações de produtos, dicas atualizadas. Use SEMPRE que precisar de dados recentes ou quando não tiver certeza do dado atual.
+3. EXECUTAR AÇÕES no app (ferramentas): transações, metas, orçamentos, recorrentes, categorias, tarefas e rotinas.
+4. CONSULTAR os dados financeiros reais do usuário (contexto abaixo + search_transactions).
 
-Regras:
-- Quando o cliente pedir uma ação, USE a ferramenta apropriada em vez de só explicar.
-- Para pedidos compostos, encadeie ferramentas.
-- Para perguntas sobre transações específicas, USE search_transactions.
-- Ao criar tarefa, extraia título, prioridade e data do que o usuário disser naturalmente.
-- Após executar, confirme em 1-2 frases o que foi feito.
-- Se faltar informação essencial (ex: valor de transação), pergunte antes de executar. Para tarefas, prioridade e data são opcionais.
-- Use os dados reais do contexto. Nunca invente números.
-- Seja concisa. Cite valores em reais.
-- Não prometa rentabilidade garantida.`;
+COMO AGIR:
+- Seja proativa, prática e acionável. Quando o usuário pedir dicas para melhorar algo (economizar, investir, sair de dívidas, organizar a rotina), traga sugestões CONCRETAS e personalizadas com base nos dados dele — não respostas genéricas.
+- Para qualquer dado que muda com o tempo (preços, juros, cotações, "qual o melhor X hoje"), use web_search ANTES de responder, e cite os números/fontes que encontrar.
+- Quando o usuário pedir uma ação no app, use a ferramenta certa em vez de só explicar. Encadeie ferramentas em pedidos compostos.
+- Para perguntas sobre transações específicas do usuário, use search_transactions.
+- Use os números reais do usuário; NUNCA invente valores das finanças dele.
+- Responda em português do Brasil, tom acolhedor e direto. Pode se aprofundar quando o assunto pedir; seja concisa em confirmações de ações.
+- Ao falar de investimentos, lembre que há riscos e não prometa rentabilidade garantida.`;
 
 function buildContext(
   a: Awaited<ReturnType<typeof analyzeFinances>>,
@@ -284,7 +283,49 @@ const TOOLS = [
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description: "Pesquisa informações ATUAIS na internet. Use para cotações (dólar, euro, cripto), taxa Selic/CDI, inflação, preços, notícias, novos produtos/investimentos, comparações e qualquer dado recente ou que você não saiba com certeza. Retorna um resumo com os dados encontrados.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "O que pesquisar, em linguagem natural. Ex: 'cotação do dólar hoje', 'melhor CDB para reserva de emergência 2026', 'taxa Selic atual'" },
+        },
+        required: ["query"],
+      },
+    },
+  },
 ];
+
+async function webSearch(query: string): Promise<string> {
+  const apiKey = process.env.LLM_API_KEY;
+  if (!apiKey || !query.trim()) return "Busca na web indisponível agora.";
+  const now = new Date().toLocaleDateString("pt-BR");
+  for (const model of SEARCH_MODELS) {
+    try {
+      const res = await fetch(`${LLM_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: `Hoje é ${now}. Você pesquisa na web e responde em português do Brasil de forma objetiva e atual. Traga números concretos e cite as fontes/datas quando houver.` },
+            { role: "user", content: query },
+          ],
+          max_tokens: 700,
+          temperature: 0.2,
+        }),
+      });
+      if (!res.ok) continue;
+      const d = await res.json();
+      const txt = (d?.choices?.[0]?.message?.content ?? "").trim();
+      if (txt) return txt;
+    } catch { /* try next model */ }
+  }
+  return "Não consegui pesquisar na internet agora. Posso responder com o que sei.";
+}
 
 type Cat = { id: string; name: string; type: string };
 
@@ -462,6 +503,11 @@ async function executeTool(name: string, args: any, userId: string, cats: Cat[])
       return { result: `${routines.length} rotina(s) ativa(s):\n${lines.join("\n")}`, changed: false };
     }
 
+    if (name === "web_search") {
+      const result = await webSearch(String(args.query ?? ""));
+      return { result, changed: false };
+    }
+
     return { result: `Erro: ferramenta desconhecida (${name}).`, changed: false };
   } catch (e) {
     console.error("[ai/chat tool]", name, e);
@@ -534,7 +580,7 @@ export async function POST(req: Request) {
       const res = await fetch(`${LLM_BASE_URL}/chat/completions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: LLM_MODEL, messages, tools: TOOLS, tool_choice: "auto", max_tokens: 900, temperature: 0.3 }),
+        body: JSON.stringify({ model: LLM_MODEL, messages, tools: TOOLS, tool_choice: "auto", max_tokens: 1400, temperature: 0.45 }),
       });
       if (!res.ok) {
         const errText = await res.text().catch(() => "");

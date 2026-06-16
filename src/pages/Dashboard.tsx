@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { seedDemo } from '../db/seed';
 import {
   Bar,
   BarChart,
@@ -20,6 +21,16 @@ import { Botao, Cartao, Indicador, PageHeader, Vazio } from '../components/ui';
 export default function Dashboard() {
   const dados = useTudo();
   const hoje = hojeISO();
+  const [demoDispensada, setDemoDispensada] = useState(
+    () => localStorage.getItem('cc-demo-x') === '1',
+  );
+  const ehDemo = localStorage.getItem('cc-demo') === '1';
+
+  async function carregarDemo() {
+    await seedDemo();
+    localStorage.setItem('cc-demo', '1');
+    localStorage.setItem('cc-init', '1');
+  }
 
   const calc = useMemo(() => {
     if (!dados) return null;
@@ -38,10 +49,37 @@ export default function Dashboard() {
     <div className="space-y-4">
       <PageHeader titulo="Início" subtitulo="Visão geral da operação" />
 
+      {ehDemo && !demoDispensada && !vazio && (
+        <div className="flex items-start justify-between gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          <span>
+            👀 Você está vendo <strong>dados de exemplo</strong>. Quando for usar de
+            verdade, vá em <strong>Mais → Ajustes → Limpar dados</strong>.
+          </span>
+          <button
+            onClick={() => {
+              localStorage.setItem('cc-demo-x', '1');
+              setDemoDispensada(true);
+            }}
+            className="shrink-0 text-base leading-none text-amber-700 dark:text-amber-300"
+            aria-label="Dispensar aviso"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {vazio && (
-        <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-          Comece cadastrando um <Link to="/clientes/novo" className="font-semibold underline">cliente</Link> e
-          criando um <Link to="/emprestimos/novo" className="font-semibold underline">empréstimo</Link>.
+        <div className="space-y-3 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+          <p>
+            Comece cadastrando um{' '}
+            <Link to="/clientes/novo" className="font-semibold underline">cliente</Link> e
+            criando um{' '}
+            <Link to="/emprestimos/novo" className="font-semibold underline">empréstimo</Link>.
+          </p>
+          <p className="text-xs">Ou veja o app funcionando com dados de exemplo:</p>
+          <Botao className="w-full" onClick={carregarDemo}>
+            👀 Carregar demonstração
+          </Botao>
         </div>
       )}
 

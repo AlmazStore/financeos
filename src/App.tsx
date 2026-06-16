@@ -3,6 +3,8 @@ import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import Lock from './security/Lock';
 import { temPIN } from './security/pin';
 import { atualizarAtrasos } from './db/repos';
+import { db } from './db/db';
+import { seedDemo } from './db/seed';
 import { useConfig } from './hooks/useConfig';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -19,6 +21,10 @@ const Configuracoes = lazy(() => import('./pages/Configuracoes'));
 const Simulador = lazy(() => import('./pages/Simulador'));
 const TesteValidacao = lazy(() => import('./pages/TesteValidacao'));
 const Mais = lazy(() => import('./pages/Mais'));
+
+// Trava síncrona: garante que a inicialização (e o seed) rode UMA vez só,
+// mesmo com o duplo-disparo de efeitos do StrictMode em desenvolvimento.
+let inicializou = false;
 
 function useTema() {
   const [escuro, setEscuro] = useState<boolean>(() => {
@@ -46,9 +52,21 @@ export default function App() {
   const config = useConfig();
   const [bloqueado, setBloqueado] = useState(() => temPIN());
 
-  // Varredura de atrasos ao abrir o app.
+  // Na 1ª abertura: carrega dados de demonstração (some quando o usuário
+  // limpa os dados em Ajustes). Depois roda a varredura de atrasos.
   useEffect(() => {
-    atualizarAtrasos();
+    if (inicializou) return;
+    inicializou = true;
+    (async () => {
+      if (!localStorage.getItem('cc-init')) {
+        if ((await db.clientes.count()) === 0) {
+          await seedDemo();
+          localStorage.setItem('cc-demo', '1');
+        }
+        localStorage.setItem('cc-init', '1');
+      }
+      await atualizarAtrasos();
+    })();
   }, []);
 
   // Bloqueio automático por inatividade.

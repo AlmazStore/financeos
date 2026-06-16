@@ -42,12 +42,16 @@ export default function Configuracoes() {
       await limparTudo();
     }
     await seedDemo();
+    localStorage.setItem('cc-demo', '1');
+    localStorage.setItem('cc-init', '1');
     aviso('Dados de exemplo carregados.');
   }
 
   async function limparDados() {
     if (!confirm('Apagar TODOS os clientes, empréstimos e pagamentos?')) return;
     await limparTudo();
+    localStorage.removeItem('cc-demo');
+    localStorage.setItem('cc-init', '1'); // não recarrega a demo sozinho
     aviso('Todos os dados foram apagados.');
   }
 

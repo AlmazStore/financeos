@@ -8,6 +8,8 @@ completa (Juros Simples, Price, SAC e Só Juros/rotativo).
 > Frase-resumo: *"Sei quanto emprestei, quanto voltou, quanto tenho a receber,
 > quem está em dia, quem está atrasado e quanto estou lucrando."*
 
+**🌐 No ar:** https://almazstore.github.io/financeos/ (após ativar o GitHub Pages — ver “Deploy”).
+
 ## Stack
 
 - React 19 + TypeScript + Vite + Tailwind CSS v4
@@ -73,6 +75,23 @@ src/
     whatsapp.ts pdf.ts exportar.ts
   hooks/  components/  security/  pages/   # UI mobile-first + PIN/lock
 ```
+
+## Deploy (GitHub Pages)
+
+O deploy é automático: a cada `push` na `main`, o workflow
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) faz o build e
+publica em **https://almazstore.github.io/financeos/**.
+
+**Ativação (uma única vez):** em **Settings → Pages → Build and deployment →
+Source**, escolha **GitHub Actions**. Depois, em **Actions**, rode o workflow
+“Deploy GitHub Pages” (ou faça um novo push) para a primeira publicação.
+
+O Vite está configurado com `base: '/financeos/'` e o app usa roteamento por
+hash, então links diretos e o recarregar de página funcionam sem erro 404.
+
+> **Histórico:** este repositório hospedava antes o **FinanceOS** (Next.js),
+> preservado na branch **`backup/financeos-nextjs`** e na tag
+> **`financeos-v1.0-backup`**.
 
 ## Conformidade
 
